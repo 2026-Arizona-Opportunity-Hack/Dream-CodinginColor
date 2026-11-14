@@ -49,14 +49,22 @@ Judges score **Scope, Documentation, Polish and Security**, plus a separate **Ac
 
 ## What we built
 
-<!-- Two or three sentences: the problem, who it helps, what the nonprofit can do now that they couldn't before -->
+ColorLoop brings Coding in Color's donor relationships, giving history, follow-ups,
+and reporting into one CIC-branded workspace. The frontend and reporting layer are
+implemented; database/auth/workflow integration is still pending in this checkout.
+No synthetic donor cards are presented as real data.
+
+See [frontend/API contracts](docs/FRONTEND-INTEGRATION.md) and
+[Vercel deployment and acceptance checklist](docs/DEPLOYMENT.md).
+The [frontend brand and accessibility audit](docs/FRONTEND-AUDIT.md) records
+responsive/keyboard checks, fixes and remaining verification.
 
 ## Tech stack
 
-- Frontend: vanilla HTML/CSS/JavaScript (planned)
+- Frontend: vanilla HTML/CSS/JavaScript
 - Backend: Node.js ES modules and Vercel Functions
 - Database: Neon PostgreSQL
-- Imports: `csv-parse` and `xlsx`
+- Imports: `csv-parse` and `read-excel-file` (backend integration pending)
 
 ## Run it locally
 
@@ -69,28 +77,18 @@ npm test
 npm run dev
 ```
 
-Use Node.js 22 or newer. `npm run dev` uses the local Vercel CLI; first-time
-setup may prompt you to sign in and link the shared Vercel project. The initial
-function is available at `/api/health`; the application UI is not built yet.
-`dotenv` loads `.env` for database scripts; Vercel loads local environment values
-for functions. Never expose `DATABASE_URL` to browser JavaScript.
+Use Node.js 22 or newer. `npm run dev` opens a local frontend/report harness at
+http://127.0.0.1:3000. The app uses real API calls; missing teammate endpoints
+return an explicit unavailable message. Reporting requires the shared `lib/db.js`,
+`lib/auth.js` and database views documented in the integration guide. Use Vercel's
+full local runner after integrating teammate endpoints. No live deployment or
+browser accessibility score has been verified yet.
 
-### Database commands
-
-Set `DATABASE_URL` in `.env` to your Neon connection string. No schema or seed data
-is included yet. Both commands report a successful no-op when their folder has no
-SQL files, without connecting to a database.
-
-- `npm run db:migrate`: apply `db/migrations/*.sql` in filename order, tracking
-  applied filenames in `colorloop_migrations`. Use names like `001_create_donors.sql`.
-  Add new migrations instead of editing applied ones.
-- `npm run db:seed`: execute `db/seeds/*.sql` in filename order on every invocation.
-  Use repeatable SQL (`ON CONFLICT`, for example) and synthetic development data.
-
-Each command runs its SQL files in one transaction and rolls back on failure.
-Do not put transaction statements or commands requiring execution outside a
-transaction in these files. Run database commands explicitly against the intended
-database; they are not part of application startup or deployment.
+`dotenv` loads local `.env` values for the local runner. Never expose `DATABASE_URL`
+or `REPORTING_API_KEY` to browser JavaScript. `npm test` validates retention
+classification, date/filter handling, reporting key authentication, privacy and
+failure behavior. Database migration/seed scripts are not present in this checkout;
+the existing database script commands require Teammate 1's implementation.
 
 ### Shared package workflow
 
@@ -99,15 +97,12 @@ package changes in the team channel, use `npm install <package>` to update both
 files, and review both in the same PR. Use `npm ci` for a clean install from the
 shared lockfile. Server scripts and Vercel Functions use ES module `import`/`export`;
 use `<script type="module">` for browser modules. Keep Node-only dependencies in
-server code. `npm test` checks import parsing and the initial health handler.
+server code. `npm test` runs the available report tests.
 
 ### Dependency audit
 
-The initial install reports advisories for the npm `xlsx` release (prototype
-pollution and regular expression denial of service), with no registry fix, plus
-advisories in the Vercel CLI development dependency tree. Review `npm audit`
-before enabling uploads of untrusted spreadsheets. No upload endpoint is included
-in this setup.
+Use `npm audit` before deploying. No dependencies were added for the frontend or
+reporting layer; browser code uses platform APIs and exports use print-to-PDF.
 
 ## Links
 

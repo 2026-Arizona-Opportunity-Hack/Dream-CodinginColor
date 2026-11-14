@@ -10,7 +10,8 @@
   "scripts": {
     "db:migrate": "node scripts/database.js migrate",
     "db:seed": "node scripts/database.js seed",
-    "test": "node --test"
+    "test": "node --test",
+    "dev": "node scripts/dev.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1",
