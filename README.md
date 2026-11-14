@@ -49,14 +49,22 @@ Judges score **Scope, Documentation, Polish and Security**, plus a separate **Ac
 
 ## What we built
 
-<!-- Two or three sentences: the problem, who it helps, what the nonprofit can do now that they couldn't before -->
+ColorLoop helps Coding in Color track donor ownership, interactions, follow-up
+tasks, and reviewed outreach. The retention backend includes secure account and
+role management and a configurable Lapsed-Donor Radar with reasons drawn from
+actual donation dates. This branch uses synthetic mock storage until the shared
+Neon schema is integrated; deployment and the frontend are still pending.
+
+See [retention API documentation and teammate handoff](docs/retention-api.md) for
+routes, permissions, example requests, mock limitations, and database requirements.
 
 ## Tech stack
 
 - Frontend: vanilla HTML/CSS/JavaScript (planned)
 - Backend: Node.js ES modules and Vercel Functions
 - Database: Neon PostgreSQL
-- Imports: `csv-parse` and `xlsx`
+- Imports: `csv-parse` and `read-excel-file`
+- Authentication: Node.js scrypt and opaque server-side sessions
 
 ## Run it locally
 
@@ -66,20 +74,21 @@ cd Dream-CodinginColor
 cp .env.example .env   # fill in your own values — never commit .env
 npm install
 npm test
-npm run dev
 ```
 
-Use Node.js 22 or newer. `npm run dev` uses the local Vercel CLI; first-time
-setup may prompt you to sign in and link the shared Vercel project. The initial
-function is available at `/api/health`; the application UI is not built yet.
-`dotenv` loads `.env` for database scripts; Vercel loads local environment values
-for functions. Never expose `DATABASE_URL` to browser JavaScript.
+Use Node.js 22 or newer. `npm test` invokes the retention handlers and services
+with synthetic data. No development server script or Vercel CLI is installed,
+and no `/api/health` function or application UI exists in this checkout.
+The backend handlers are in `api/`; keep `DATABASE_URL` out of browser JavaScript.
+For local mock handler integration, set `COLORLOOP_STORE=mock` and `APP_ORIGIN`;
+the [API guide](docs/retention-api.md) explains bootstrap and HTTPS requirements.
+Mock storage is ephemeral and disabled in production and on Vercel.
 
 ### Database commands
 
-Set `DATABASE_URL` in `.env` to your Neon connection string. No schema or seed data
-is included yet. Both commands report a successful no-op when their folder has no
-SQL files, without connecting to a database.
+The package lists database commands, but their `scripts/database.js` implementation,
+schema, and seed data are absent in this checkout. Teammate 1 owns this integration.
+The intended commands are:
 
 - `npm run db:migrate`: apply `db/migrations/*.sql` in filename order, tracking
   applied filenames in `colorloop_migrations`. Use names like `001_create_donors.sql`.
@@ -87,10 +96,8 @@ SQL files, without connecting to a database.
 - `npm run db:seed`: execute `db/seeds/*.sql` in filename order on every invocation.
   Use repeatable SQL (`ON CONFLICT`, for example) and synthetic development data.
 
-Each command runs its SQL files in one transaction and rolls back on failure.
-Do not put transaction statements or commands requiring execution outside a
-transaction in these files. Run database commands explicitly against the intended
-database; they are not part of application startup or deployment.
+Confirm these contracts with Teammate 1 before running database commands. No
+retention endpoint currently connects to Neon or creates database tables.
 
 ### Shared package workflow
 
@@ -99,15 +106,14 @@ package changes in the team channel, use `npm install <package>` to update both
 files, and review both in the same PR. Use `npm ci` for a clean install from the
 shared lockfile. Server scripts and Vercel Functions use ES module `import`/`export`;
 use `<script type="module">` for browser modules. Keep Node-only dependencies in
-server code. `npm test` checks import parsing and the initial health handler.
+server code. `npm test` checks retention authentication, API authorization,
+relationships, outreach, reminders, and radar using synthetic fixtures.
 
 ### Dependency audit
 
-The initial install reports advisories for the npm `xlsx` release (prototype
-pollution and regular expression denial of service), with no registry fix, plus
-advisories in the Vercel CLI development dependency tree. Review `npm audit`
-before enabling uploads of untrusted spreadsheets. No upload endpoint is included
-in this setup.
+`npm audit` reported **0 vulnerabilities** during retention implementation on
+November 14, 2026. This change adds no dependencies and does not modify the package
+manifest or lockfile. The Vercel CLI and `xlsx` are not installed.
 
 ## Links
 
