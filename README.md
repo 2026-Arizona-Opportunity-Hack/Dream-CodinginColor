@@ -49,7 +49,15 @@ Judges score **Scope, Documentation, Polish and Security**, plus a separate **Ac
 
 ## What we built
 
-<!-- Two or three sentences: the problem, who it helps, what the nonprofit can do now that they couldn't before -->
+ColorLoop helps Coding in Color track donor ownership, interactions, follow-up
+tasks, and reviewed outreach. The retention backend includes secure account and
+role management and a configurable Lapsed-Donor Radar with reasons drawn from
+actual donation dates. The donor database and mock-backed retention modules are
+being combined on `feature/integration`; persistent retention storage, the frontend
+merge, and deployment verification are still pending.
+
+See [retention API documentation and teammate handoff](docs/retention-api.md) for
+routes, permissions, example requests, mock limitations, and database requirements.
 
 ## Tech stack
 
@@ -57,6 +65,7 @@ Judges score **Scope, Documentation, Polish and Security**, plus a separate **Ac
 - Backend: Node.js ES modules and Vercel Functions
 - Database: Neon PostgreSQL
 - Imports: `csv-parse` and `read-excel-file`, with bounded XLSX archive inspection
+- Authentication: Node.js scrypt and opaque server-side sessions
 
 ## Run it locally
 
@@ -70,11 +79,14 @@ npm run db:check  # requires your development Neon DATABASE_URL
 ```
 
 Use Node.js 22 or newer. The database/API implementation uses server-side Vercel
-Functions; the application UI and authentication are being built on teammate
-branches. There is currently no `dev` script or bundled Vercel CLI. Protected
-endpoints return 401 until the real permission middleware is integrated.
+Functions. There is currently no `dev` script or bundled Vercel CLI, and the
+frontend has not been merged yet. Authentication and retention require durable
+storage integration; production requests currently fail closed with 503.
 `dotenv` loads `.env` for server scripts; never expose `DATABASE_URL` to browser
 JavaScript. Set `APP_ORIGIN` to the exact UI origin for JSON mutations.
+For isolated local retention tests, the explicit `COLORLOOP_STORE=mock` mode is
+ephemeral and disabled in production and on Vercel. See the
+[retention API guide](docs/retention-api.md) for bootstrap and HTTPS requirements.
 
 ### Database commands
 
@@ -97,6 +109,7 @@ The schema covers donors, gifts, campaigns/outcomes, import audit, aliases,
 custom definitions, and merge history. Auth/activity/task/outreach tables and user
 foreign keys await Teammate 2's final schema; no parallel auth schema is created.
 No hosted deployment has been tested or performed by this change.
+No retention endpoint currently connects to Neon or creates database tables.
 
 ### Shared package workflow
 
@@ -105,14 +118,16 @@ package changes in the team channel, use `npm install <package>` to update both
 files, and review both in the same PR. Use `npm ci` for a clean install from the
 shared lockfile. Server scripts and Vercel Functions use ES module `import`/`export`;
 use `<script type="module">` for browser modules. Keep Node-only dependencies in
-server code. `npm test` checks import parsing, transactional database services, protected route behavior, and the initial health handler.
+server code. `npm test` checks import parsing, transactional database services,
+protected routes, authentication, relationships, outreach, reminders, and radar.
+Some branch-specific authorization expectations still need integration updates.
 
 ### Dependency audit
 
-The existing package graph uses `read-excel-file` instead of vulnerable npm
-`xlsx` and excludes the Vercel CLI. A synchronized install and `npm audit` report
-zero known advisories. Import limits and formula/XML checks are still enforced;
-see the security review for limits and integration checks before launch.
+Both feature branches previously reported zero known npm advisories. The combined
+dependency graph still needs a fresh audit. It uses `read-excel-file` rather than
+`xlsx` and excludes the Vercel CLI. Import limits and formula/XML checks remain
+enforced; see the security review for remaining verification before launch.
 
 ## Links
 
