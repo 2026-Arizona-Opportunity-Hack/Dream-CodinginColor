@@ -53,10 +53,10 @@ Judges score **Scope, Documentation, Polish and Security**, plus a separate **Ac
 
 ## Tech stack
 
-- Frontend:
-- Backend:
-- Database:
-- APIs / services:
+- Frontend: vanilla HTML/CSS/JavaScript (planned)
+- Backend: Node.js ES modules and Vercel Functions
+- Database: Neon PostgreSQL
+- Imports: `csv-parse` and `xlsx`
 
 ## Run it locally
 
@@ -64,8 +64,50 @@ Judges score **Scope, Documentation, Polish and Security**, plus a separate **Ac
 git clone https://github.com/2026-Arizona-Opportunity-Hack/Dream-CodinginColor.git
 cd Dream-CodinginColor
 cp .env.example .env   # fill in your own values — never commit .env
-# install + start commands here
+npm install
+npm test
+npm run dev
 ```
+
+Use Node.js 22 or newer. `npm run dev` uses the local Vercel CLI; first-time
+setup may prompt you to sign in and link the shared Vercel project. The initial
+function is available at `/api/health`; the application UI is not built yet.
+`dotenv` loads `.env` for database scripts; Vercel loads local environment values
+for functions. Never expose `DATABASE_URL` to browser JavaScript.
+
+### Database commands
+
+Set `DATABASE_URL` in `.env` to your Neon connection string. No schema or seed data
+is included yet. Both commands report a successful no-op when their folder has no
+SQL files, without connecting to a database.
+
+- `npm run db:migrate`: apply `db/migrations/*.sql` in filename order, tracking
+  applied filenames in `colorloop_migrations`. Use names like `001_create_donors.sql`.
+  Add new migrations instead of editing applied ones.
+- `npm run db:seed`: execute `db/seeds/*.sql` in filename order on every invocation.
+  Use repeatable SQL (`ON CONFLICT`, for example) and synthetic development data.
+
+Each command runs its SQL files in one transaction and rolls back on failure.
+Do not put transaction statements or commands requiring execution outside a
+transaction in these files. Run database commands explicitly against the intended
+database; they are not part of application startup or deployment.
+
+### Shared package workflow
+
+All teammates use this root `package.json` and `package-lock.json`. Coordinate
+package changes in the team channel, use `npm install <package>` to update both
+files, and review both in the same PR. Use `npm ci` for a clean install from the
+shared lockfile. Server scripts and Vercel Functions use ES module `import`/`export`;
+use `<script type="module">` for browser modules. Keep Node-only dependencies in
+server code. `npm test` checks import parsing and the initial health handler.
+
+### Dependency audit
+
+The initial install reports advisories for the npm `xlsx` release (prototype
+pollution and regular expression denial of service), with no registry fix, plus
+advisories in the Vercel CLI development dependency tree. Review `npm audit`
+before enabling uploads of untrusted spreadsheets. No upload endpoint is included
+in this setup.
 
 ## Links
 
