@@ -1,5 +1,9 @@
 # Vercel deployment
 
+> Integration update: see [INTEGRATION.md](INTEGRATION.md) for current persistence,
+> shared API mappings, synthetic HTTPS demo and deployment gates. Branch-specific
+> status and proposed interfaces below describe the original teammate handoff.
+
 1. Use Node.js 22+. Run `npm ci` and `npm test` from this repository.
 2. Integrate teammate database/auth/workflow modules and the view contracts in
    [FRONTEND-INTEGRATION.md](FRONTEND-INTEGRATION.md). Apply migrations using the

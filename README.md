@@ -49,90 +49,99 @@ Judges score **Scope, Documentation, Polish and Security**, plus a separate **Ac
 
 ## What we built
 
-ColorLoop helps Coding in Color track donor ownership, interactions, follow-up
-tasks, and reviewed outreach. The retention backend includes secure account and
-role management and a configurable Lapsed-Donor Radar with reasons drawn from
-actual donation dates. The donor database and mock-backed retention modules are
-being combined on `feature/integration`; persistent retention storage and frontend/API wiring are still pending.
+ColorLoop combines Coding in Color's donor records, CSV/XLSX imports, reviewed
+merges, board assignments, relationship timelines, follow-up tasks, human-approved
+outreach, Lapsed-Donor Radar, retention analytics, and printable funder reports.
+Accounts, sessions, permissions, activities, tasks, drafts, approval/delivery
+history and audit events now use normalized PostgreSQL tables. The CIC frontend
+uses the shared API contracts with secure cookies and CSRF tokens.
 
-See [retention API documentation and teammate handoff](docs/retention-api.md) for
-routes, permissions, example requests, mock limitations, and database requirements.
+The full stack has been tested with an isolated PostgreSQL engine and real local
+HTTPS/Chrome. Live Neon migrations, hosted Vercel deployment, and real message
+delivery have not been performed. Provider delivery stays disabled.
 
 ## Tech stack
 
-- Frontend: vanilla HTML/CSS/JavaScript
-- Backend: Node.js ES modules and Vercel Functions
-- Database: Neon PostgreSQL
-- Imports: `csv-parse` and `read-excel-file`, with bounded XLSX archive inspection
-- Authentication: Node.js scrypt and opaque server-side sessions
+- Vanilla HTML/CSS/JavaScript with CIC branding and keyboard-accessible dialogs
+- Node.js 22+ ES modules and Vercel Functions
+- Neon PostgreSQL, connection-bound transactions, additive SQL migrations
+- `csv-parse` and bounded `read-excel-file`/`fflate` XLSX parsing
+- Node scrypt, opaque durable sessions, CSRF tokens and server-side RBAC
+- Development-only PGlite for isolated synthetic SQL tests and demos
 
-## Run it locally
+## Run a safe synthetic demo
 
 ```bash
-git clone https://github.com/2026-Arizona-Opportunity-Hack/Dream-CodinginColor.git
-cd Dream-CodinginColor
-cp .env.example .env   # fill in your own values — never commit .env
-npm install
-npm test
-npm run dev
-npm run db:check  # requires your development Neon DATABASE_URL
+npm ci
+mkdir -p node_modules/.cache/colorloop
+openssl req -x509 -newkey rsa:2048 -nodes -days 7 -subj /CN=localhost \
+  -keyout node_modules/.cache/colorloop/tls.key \
+  -out node_modules/.cache/colorloop/tls.crt
+cp .env.example .env
 ```
 
-Use Node.js 22 or newer. The database/API implementation uses server-side Vercel
-Functions. `npm run dev` starts the frontend/report harness on port 3000;
-full API wiring is being integrated. No Vercel CLI is bundled. Authentication and retention require durable
-storage integration; production requests currently fail closed with 503.
-`dotenv` loads `.env` for server scripts; never expose `DATABASE_URL` to browser
-JavaScript. Set `APP_ORIGIN` to the exact UI origin for JSON mutations.
-For isolated local retention tests, the explicit `COLORLOOP_STORE=mock` mode is
-ephemeral and disabled in production and on Vercel. See the
-[retention API guide](docs/retention-api.md) for bootstrap and HTTPS requirements.
+In your ignored `.env`, set `COLORLOOP_DEMO=true`, a local `DEMO_PASSWORD` of at
+least 15 characters, `APP_ORIGIN=https://localhost:3000`, and the TLS paths shown
+in `.env.example`. Then run `npm run dev` and open https://localhost:3000.
+Accept the local development certificate warning for this synthetic demo only.
+Sign in as `admin@example.test` with your chosen demo password.
 
-### Database commands
+Demo mode creates a fresh in-memory PostgreSQL database with synthetic accounts,
+donors and verified synthetic gifts each run. It never connects to Neon, even if
+`DATABASE_URL` exists. It is rejected in production/on Vercel. Secure cookies stay
+enabled. See the [demo walkthrough and integration guide](docs/INTEGRATION.md).
 
-Set `DATABASE_URL` to a development Neon connection string, then run
-`npm run db:check` to verify a real connection before applying schema changes.
-Neon has not been verified in this workspace because credentials are absent.
+## Neon setup and authentication
 
-- `npm run db:migrate`: apply versioned `db/migrations/*.sql` atomically, tracking
-  immutable files and checksums in `colorloop_migrations`.
-- `ALLOW_SYNTHETIC_SEED=true npm run db:seed`: load repeatable synthetic examples
-  from `db/seed.sql` on a designated development database. Production environment
-  flags block seeds. Do not point this command at production.
-- `npm test`: run isolated PostgreSQL-engine, import, and route-security tests.
-- `RUN_NEON_TESTS=true node --test test/neon.test.js`: optional live read-only check.
+Keep `COLORLOOP_DEMO=false` and omit `COLORLOOP_STORE=mock` for persistent use.
+Configure the server-only `DATABASE_URL` and exact HTTPS `APP_ORIGIN`. Review
+migrations 001–003 and existing user references before applying them. No command
+below has been run against a live database during integration:
 
-See [database setup and team schema handoff](docs/database-integration.md),
+- `npm run db:check`: explicit read-only connection check.
+- `npm run db:migrate`: apply additive migrations atomically with checksum tracking.
+- `BOOTSTRAP_ADMIN=true node scripts/bootstrap-admin.js`: explicit operator account
+  bootstrap, using private `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` values.
+  Requires an empty account store; remove the bootstrap password afterward.
+
+Production session/retention storage fails closed when unavailable. There is no
+public registration or default production password. Donor-facing messages remain
+unsent without an explicitly integrated provider.
+
+## Verification
+
+```bash
+RUN_NEON_TESTS=false npm test
+npm audit
+npm audit --omit=dev
+node scripts/smoke-integration.mjs
+node scripts/smoke-browser.mjs
+node scripts/audit-frontend.mjs
+```
+
+The two smoke scripts use only synthetic isolated SQL and temporary HTTPS
+certificates. Browser checks require local Chrome (override `CHROME_PATH` when
+needed). No Vercel CLI or new package is needed. The live Neon test remains opt-in.
+Both npm audits reported zero vulnerabilities during integration.
+
+## Integration and operational limits
+
+See [integration setup, security, demo and limitations](docs/INTEGRATION.md),
 [donor/import API contracts](docs/donor-api.md), and
-[security review and remaining verification](docs/security-audit.md).
-The schema covers donors, gifts, campaigns/outcomes, import audit, aliases,
-custom definitions, and merge history. Auth/activity/task/outreach tables and user
-foreign keys await Teammate 2's final schema; no parallel auth schema is created.
-No hosted deployment has been tested or performed by this change.
-No retention endpoint currently connects to Neon or creates database tables.
+[retention API details](docs/retention-api.md). Earlier teammate handoffs describe
+branch-specific contracts; the integration guide takes precedence.
 
-### Shared package workflow
+Unverified currency/payment status is stored as unknown and excluded from verified
+radar/reporting. Existing email addresses never imply contact consent. Funder
+outcomes require explicit evidence; none are inferred from gifts. PDF export uses
+browser printing. Board attribution uses current ownership; activity counts with
+program filters exclude unclassified activities. Hosted routing, Neon concurrency,
+production throttling/proxy identity and delivery reconciliation need deployment
+validation. Current role permissions apply across the single nonprofit; they are
+not an assignment-scoped privacy boundary.
 
-All teammates use this root `package.json` and `package-lock.json`. Coordinate
-package changes in the team channel, use `npm install <package>` to update both
-files, and review both in the same PR. Use `npm ci` for a clean install from the
-shared lockfile. Server scripts and Vercel Functions use ES module `import`/`export`;
-use `<script type="module">` for browser modules. Keep Node-only dependencies in
-server code. `npm test` checks import parsing, transactional database services,
-protected routes, authentication, relationships, outreach, reminders, and radar.
-Reporting tests are also included. Some branch-specific expectations still need integration updates.
-
-### Dependency audit
-
-Both feature branches previously reported zero known npm advisories. The combined
-dependency graph still needs a fresh audit. It uses `read-excel-file` rather than
-`xlsx` and excludes the Vercel CLI. Import limits and formula/XML checks remain
-enforced; see the security review for remaining verification before launch.
-
-See [frontend/API contracts](docs/FRONTEND-INTEGRATION.md), the
-[brand/accessibility audit](docs/FRONTEND-AUDIT.md), and
-[deployment checklist](docs/DEPLOYMENT.md). Reports support print-to-PDF; no
-server-generated PDF attachment or hosted deployment has been verified.
+All code stays in this repository. Package changes remain coordinated through the
+shared manifest/lockfile. Never commit `.env`, credentials, or real donor data.
 
 ## Links
 

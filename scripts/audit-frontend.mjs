@@ -13,6 +13,18 @@ const donor={id:'audit-donor',name:'Audit Community Foundation',email:'audit@exa
 const report={from:`${year}-01-01`,to:`${year}-11-14`,previousFrom:`${year-1}-01-01`,previousTo:`${year-1}-11-14`,giftTotal:1250,donorTotal:3,returning:2,lapsed:1,new:1,reactivated:1,retentionRate:2/3,churnRate:1/3,increased:1,decreased:1,unchanged:0,monthly:[{month:`${year}-01`,total:300},{month:`${year}-02`,total:950}],byProgram:[{name:'Community digital education',total:1250}],byBoardMember:[{name:'Audit Board Member',total:1250}]};
 const task={id:'audit-task',title:'Thank the community foundation',due_date:`${year}-01-01`,assignee_name:'Audit Board Member',status:'open'};
 const fixtures={'/api/auth/me':{name:'Audit user'},'/api/reports/retention':report,'/api/donors':[donor],'/api/tasks':[task],'/api/board-members':[{id:'audit-member',name:'Audit Board Member',role:'admin'}],'/api/outreach/drafts':[{id:'audit-draft',subject:'Thank you for supporting digital skills',body:'Synthetic audit draft only.',status:'approved'}],'/api/retention/at-risk':[{name:donor.name,last_gift_date:`${year-1}-01-01`,next_action:'Arrange a conversation'}],'/api/outreach/history':[{subject:'Thank you',sent_at:`${year}-01-02`,status:'sent'}],'/api/custom-fields':[{id:'audit-field',label:'Community connection',type:'text',active:true}],'/api/campaigns':[{id:'audit-campaign',name:'Digital learning',archived:false}],'/api/roles':[{name:'admin',permissions:['reports:read','reports:funder']}],'/api/settings/outreach':{follow_up_days:30,thank_you_template:'Thank you.',follow_up_template:'Let’s connect.'}};
+// Canonical backend DTOs: the browser adapter, not fixtures, produces screen models.
+fixtures['/api/auth/me']={user:{name:'Audit user',permissions:['reports.read']},csrfToken:'synthetic-audit-csrf'};
+fixtures['/api/donors']=[{id:donor.id,display_name:donor.name,normalized_email:donor.email,board_member_name:donor.board_member_name,verified_usd_total:'1250.00'}];
+fixtures['/api/tasks']=[{id:task.id,nextAction:task.title,dueAt:`${year}-01-01T00:00:00Z`,assigneeId:'audit-member',status:'open'}];
+fixtures['/api/assignments/members']=[{id:'audit-member',name:'Audit Board Member',roleId:'administrator',active:true}];
+fixtures['/api/outreach/drafts']=[{id:'audit-draft',revision:1,subject:'Thank you for supporting digital skills',body:'Synthetic audit draft only.',status:'approved',channel:'email'}];
+fixtures['/api/retention/at-risk']=[{donorId:donor.id,donorName:donor.name,lastDonationAt:`${year-1}-01-01`,reason:'Configured inactivity threshold reached.'}];
+fixtures['/api/outreach/history']=[{subject:'Thank you',at:`${year}-01-02`,status:'sent'}];
+fixtures['/api/custom-fields']=[{id:'audit-field',key:'interest',label:'Community connection',field_type:'text',validation_rules:{},active:true}];
+fixtures['/api/campaigns']=[{id:'audit-campaign',name:'Digital learning',archived_at:null}];
+fixtures['/api/roles']=[{id:'administrator',name:'Administrator',permissions:['reports.read']}];
+fixtures['/api/retention/settings']={inactivityMonths:12};
 const server=createServer(async(req,res)=>{const path=new URL(req.url,'http://localhost').pathname;try{if(path.startsWith('/api/')){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({data:fixtures[path]??[]}));return;}const file=path==='/'?'index.html':path.slice(1);if(!['index.html','public/css/app.css','public/js/app.js','public/js/api.js'].includes(file)){res.writeHead(404).end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(await readFile(`${root}/${file}`));}catch(e){res.writeHead(500).end(e.message);}});
 server.listen(0,'127.0.0.1');await once(server,'listening');
 const chrome=spawn(process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless=new','--no-first-run','--no-default-browser-check','--remote-debugging-port=0',`--user-data-dir=${join(tmpdir(),`colorloop-audit-profile-${process.pid}`)}`,'about:blank'],{stdio:['ignore','ignore','pipe']});
@@ -39,7 +51,7 @@ try{
     const background=el=>{for(let node=el;node;node=node.parentElement){const bg=getComputedStyle(node).backgroundColor;if(bg!=='rgba(0, 0, 0, 0)'&&bg!=='transparent')return bg;}return 'rgb(255, 255, 255)';};
     const contrast=[];const small=[];const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
     while(walker.nextNode()){const text=walker.currentNode.textContent.trim();const el=walker.currentNode.parentElement;if(!text||!el.checkVisibility({checkVisibilityCSS:true})||!el.getClientRects().length||el.closest('script,style,dialog:not([open])'))continue;const style=getComputedStyle(el);const fg=luminance(parse(style.color)),bg=luminance(parse(background(el)));const ratio=(Math.max(fg,bg)+.05)/(Math.min(fg,bg)+.05);const size=parseFloat(style.fontSize);const threshold=size>=24||(size>=18.66&&Number(style.fontWeight)>=700)?3:4.5;if(ratio<threshold)contrast.push({text:text.slice(0,65),ratio,size,foreground:style.color,background:background(el)});if(size<12)small.push({text:text.slice(0,65),size});}
-    return {title:document.title,overflow:document.documentElement.scrollWidth>innerWidth,width:innerWidth,scrollWidth:document.documentElement.scrollWidth,contrast,small,images:document.images.length,bodyFont:getComputedStyle(document.body).fontFamily,bodyLineHeight:getComputedStyle(document.body).lineHeight,buttons:[...document.querySelectorAll('button')].filter(b=>b.checkVisibility()).map(b=>({text:b.textContent.trim(),type:b.type,width:b.getBoundingClientRect().width,height:b.getBoundingClientRect().height})),unlabelled:[...document.querySelectorAll('input,select,textarea')].filter(e=>e.checkVisibility()&&!e.labels.length&&!e.getAttribute('aria-label')).map(e=>e.outerHTML)};
+    return {title:document.title,overflow:document.documentElement.scrollWidth>innerWidth,width:innerWidth,scrollWidth:document.documentElement.scrollWidth,contrast,small,images:document.images.length,bodyFont:getComputedStyle(document.body).fontFamily,bodyLineHeight:getComputedStyle(document.body).lineHeight,buttons:[...document.querySelectorAll('button')].filter(b=>b.checkVisibility()).map(b=>({text:b.textContent.trim(),type:b.type,width:b.getBoundingClientRect().width,height:b.getBoundingClientRect().height})),renderErrors:[...document.querySelectorAll('main [role=alert]')].map(e=>e.textContent),unlabelled:[...document.querySelectorAll('input,select,textarea')].filter(e=>e.checkVisibility()&&!e.labels.length&&!e.getAttribute('aria-label')).map(e=>e.outerHTML)};
    })()`);
    results.push({viewport:name,screen,...audit});
    if(['dashboard','donors','imports'].includes(screen)||name==='mobile'){const {data}=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});await writeFile(`${output}/${name}-${screen}.png`,Buffer.from(data,'base64'));}
@@ -55,7 +67,8 @@ try{
  await key('Enter','Enter',{windowsVirtualKeyCode:13});
  const skipWorks=await evaluate(`document.activeElement.id==='main'&&location.hash==='#donors'`);
  await evaluate(`document.querySelector('#session').focus()`);await key('Enter','Enter',{windowsVirtualKeyCode:13});
- 
+
+ if(!await evaluate(`document.querySelector('dialog').open`))await key('Enter','Enter',{windowsVirtualKeyCode:13});
  const dialogStartsOnEmail=await evaluate(`document.querySelector('dialog').open&&document.activeElement.name==='email'`);
  for(let i=0;i<6;i++)await key('Tab','Tab',{windowsVirtualKeyCode:9});
  const dialogTrapsFocus=await evaluate(`document.querySelector('dialog').contains(document.activeElement)`);
@@ -73,6 +86,6 @@ try{
  const approved=new Set(['#007A3D','#00A850','#E6F4ED','#FFFFFF','#595959','#C8C8C8','#000000']);
  const offPalette=[...new Set(css.match(/#[0-9a-f]{3,8}\b/gi)||[])].filter(c=>!approved.has(c.toUpperCase()));
  const summary={fixtureOnly:true,offPalette,results,keyboard};await writeFile(`${output}/results.json`,JSON.stringify(summary,null,2));
- console.log(JSON.stringify({output,offPalette,views:results.length,overflow:results.filter(r=>r.overflow).map(r=>[r.viewport,r.screen]),contrast:results.filter(r=>r.contrast.length).map(r=>({viewport:r.viewport,screen:r.screen,issues:r.contrast})),smallText:results.filter(r=>r.small.length),unlabelled:results.filter(r=>r.unlabelled.length),keyboard},null,2));
- if(offPalette.length||results.some(r=>r.overflow||r.contrast.length||r.small.length||r.unlabelled.length)||Object.entries(keyboard).some(([key,value])=>key!=='focusStyle'&&value!==true))process.exitCode=1;
+ console.log(JSON.stringify({output,offPalette,views:results.length,overflow:results.filter(r=>r.overflow).map(r=>[r.viewport,r.screen]),contrast:results.filter(r=>r.contrast.length).map(r=>({viewport:r.viewport,screen:r.screen,issues:r.contrast})),smallText:results.filter(r=>r.small.length),unlabelled:results.filter(r=>r.unlabelled.length),renderErrors:results.filter(r=>r.renderErrors.length),keyboard},null,2));
+ if(offPalette.length||results.some(r=>r.overflow||r.contrast.length||r.small.length||r.unlabelled.length||r.renderErrors.length)||Object.entries(keyboard).some(([key,value])=>key!=='focusStyle'&&value!==true))process.exitCode=1;
 }finally{websocket?.close();chrome.kill('SIGTERM');server.close();}

@@ -1,5 +1,9 @@
 # ColorLoop database handoff
 
+> Integration update: see [INTEGRATION.md](INTEGRATION.md) for current persistence,
+> shared API mappings, synthetic HTTPS demo and deployment gates. Branch-specific
+> status and proposed interfaces below describe the original teammate handoff.
+
 Status: implemented locally on `feature/database`; not deployed. Neon connectivity
 is **not verified** because no `DATABASE_URL` is configured. Never infer connection
 success from unit tests. No production database was modified.

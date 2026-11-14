@@ -1,5 +1,9 @@
 # ColorLoop frontend and reports integration
 
+> Integration update: see [INTEGRATION.md](INTEGRATION.md) for current persistence,
+> shared API mappings, synthetic HTTPS demo and deployment gates. Branch-specific
+> status and proposed interfaces below describe the original teammate handoff.
+
 ## Status and proposed PR split
 
 All code remains in this repository on `feature/frontend`. Proposed review units:

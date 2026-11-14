@@ -56,8 +56,9 @@ test('mock transactions roll back and storage is disabled by default', async () 
   await assert.rejects(store.transaction(s => { s.users.push({ id: 'bad' }); throw new Error('abort'); }));
   assert.deepEqual(await store.read(s => s.users), []);
   const previous = { COLORLOOP_STORE: process.env.COLORLOOP_STORE,
-    NODE_ENV: process.env.NODE_ENV, VERCEL: process.env.VERCEL };
+    NODE_ENV: process.env.NODE_ENV, VERCEL: process.env.VERCEL, DATABASE_URL:process.env.DATABASE_URL };
   delete process.env.COLORLOOP_STORE;
+  delete process.env.DATABASE_URL;
   try {
     assert.throws(() => getStore(), /not configured/);
     process.env.COLORLOOP_STORE = 'mock';

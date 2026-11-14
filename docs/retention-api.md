@@ -1,5 +1,9 @@
 # ColorLoop retention API and teammate handoff
 
+> Integration update: see [INTEGRATION.md](INTEGRATION.md) for current persistence,
+> shared API mappings, synthetic HTTPS demo and deployment gates. Branch-specific
+> status and proposed interfaces below describe the original teammate handoff.
+
 Status: executable mock-backed handlers and services on `feature/retention`.
 No database schema, `lib/db.js`, frontend, deployment, or delivery credentials
 were available in this checkout. These modules do not create production tables.

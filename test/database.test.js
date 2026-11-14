@@ -7,6 +7,8 @@ import { createDonor, editDonor, listDonors, addDonation, donorDonations } from 
 import { previewImport, confirmImport } from '../lib/import-data.js';
 import { matchDonor, mergeDonors } from '../lib/matching.js';
 import { saveField, saveCampaign } from '../lib/custom-field-data.js';
+import { createSqlStore } from '../lib/retention-sql-store.js';
+import { bootstrapAdministrator } from '../lib/auth.js';
 
 const actor = { id: '40000000-0000-4000-8000-000000000001' };
 const person = (name = 'Example Donor', email = 'example@example.invalid') => ({ donor_type: 'person', display_name: name, normalized_email: email });
@@ -27,6 +29,7 @@ test('database services against isolated PostgreSQL engine', async (t) => {
       await tx(migrate); await tx(migrate); await tx(seed); await tx(seed);
       assert.equal((await query('SELECT count(*)::int AS n FROM donors')).rows[0].n, 2);
       assert.equal((await query('SELECT count(*)::int AS n FROM donations')).rows[0].n, 1);
+      actor.id = (await bootstrapAdministrator(createSqlStore(db), { name:'Synthetic SQL operator', email:'operator@example.test', password:'synthetic operator password' })).id;
     });
     let donor;
     await t.test('create/edit/archive donor and preserve donation history', async () => {

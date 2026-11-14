@@ -69,7 +69,7 @@ test('API validation rejects malformed and unknown input, methods, and leaks no 
   assert.equal(wrongMethod.statusCode, 405);
   assert.equal(wrongMethod.headers.Allow, 'GET, POST, PATCH');
   const res = { setHeader() {}, status(n) { this.statusCode = n; return this; }, json(value) { this.body = value; } };
-  await createHandler('users', { store: { read() { throw new Error('private database detail'); } } })({ method: 'GET', headers: {} }, res);
+  await createHandler('users', { store: { read() { throw new Error('private database detail'); } } })({ method: 'GET', headers: {cookie:`__Host-colorloop=${'0'.repeat(64)}`} }, res);
   assert.equal(res.statusCode, 500);
   assert.doesNotMatch(JSON.stringify(res.body), /private database/);
 });

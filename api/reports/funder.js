@@ -3,7 +3,7 @@ import { authorize, loadGifts, handleError, readOnly } from '../../lib/reporting
 export default async function handler(req,res) {
   if(!readOnly(req,res))return;
   try {
-    const deps=await authorize(req,res,'reports:funder');if(!deps)return;
+    const deps=await authorize(req,res,'reports.read');if(!deps)return;
     const filters=parseFilters(req.query),donorId=req.query.donorId;
     if(typeof donorId!=='string'||!donorId||donorId.length>120)throw new ReportError(400,'INVALID_DONOR','A donorId of at most 120 characters is required.');
     const sql=deps.sql;
