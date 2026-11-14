@@ -11,7 +11,8 @@
     "db:migrate": "node scripts/database.js migrate",
     "db:seed": "node scripts/database.js seed",
     "test": "node --test",
-    "db:check": "node scripts/database.js check"
+    "db:check": "node scripts/database.js check",
+    "dev": "node scripts/dev.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1",

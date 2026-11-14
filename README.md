@@ -53,15 +53,14 @@ ColorLoop helps Coding in Color track donor ownership, interactions, follow-up
 tasks, and reviewed outreach. The retention backend includes secure account and
 role management and a configurable Lapsed-Donor Radar with reasons drawn from
 actual donation dates. The donor database and mock-backed retention modules are
-being combined on `feature/integration`; persistent retention storage, the frontend
-merge, and deployment verification are still pending.
+being combined on `feature/integration`; persistent retention storage and frontend/API wiring are still pending.
 
 See [retention API documentation and teammate handoff](docs/retention-api.md) for
 routes, permissions, example requests, mock limitations, and database requirements.
 
 ## Tech stack
 
-- Frontend: vanilla HTML/CSS/JavaScript (planned)
+- Frontend: vanilla HTML/CSS/JavaScript
 - Backend: Node.js ES modules and Vercel Functions
 - Database: Neon PostgreSQL
 - Imports: `csv-parse` and `read-excel-file`, with bounded XLSX archive inspection
@@ -75,12 +74,13 @@ cd Dream-CodinginColor
 cp .env.example .env   # fill in your own values — never commit .env
 npm install
 npm test
+npm run dev
 npm run db:check  # requires your development Neon DATABASE_URL
 ```
 
 Use Node.js 22 or newer. The database/API implementation uses server-side Vercel
-Functions. There is currently no `dev` script or bundled Vercel CLI, and the
-frontend has not been merged yet. Authentication and retention require durable
+Functions. `npm run dev` starts the frontend/report harness on port 3000;
+full API wiring is being integrated. No Vercel CLI is bundled. Authentication and retention require durable
 storage integration; production requests currently fail closed with 503.
 `dotenv` loads `.env` for server scripts; never expose `DATABASE_URL` to browser
 JavaScript. Set `APP_ORIGIN` to the exact UI origin for JSON mutations.
@@ -120,7 +120,7 @@ shared lockfile. Server scripts and Vercel Functions use ES module `import`/`exp
 use `<script type="module">` for browser modules. Keep Node-only dependencies in
 server code. `npm test` checks import parsing, transactional database services,
 protected routes, authentication, relationships, outreach, reminders, and radar.
-Some branch-specific authorization expectations still need integration updates.
+Reporting tests are also included. Some branch-specific expectations still need integration updates.
 
 ### Dependency audit
 
@@ -128,6 +128,11 @@ Both feature branches previously reported zero known npm advisories. The combine
 dependency graph still needs a fresh audit. It uses `read-excel-file` rather than
 `xlsx` and excludes the Vercel CLI. Import limits and formula/XML checks remain
 enforced; see the security review for remaining verification before launch.
+
+See [frontend/API contracts](docs/FRONTEND-INTEGRATION.md), the
+[brand/accessibility audit](docs/FRONTEND-AUDIT.md), and
+[deployment checklist](docs/DEPLOYMENT.md). Reports support print-to-PDF; no
+server-generated PDF attachment or hosted deployment has been verified.
 
 ## Links
 
