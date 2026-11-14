@@ -1,5 +1,9 @@
 # ColorLoop integration, demo and operational handoff
 
+> Current pre-merge changes: see [PREMERGE-FIXES.md](PREMERGE-FIXES.md) for safe
+> static builds, role confirmation, evidence transfer, legacy identity upgrades
+> and the remaining hosting-capacity decision.
+
 This is the current integration contract. Older teammate handoffs describe the
 original branch boundaries; use this guide and the actual routes after integration.
 All work remains in this repository on `feature/integration`.

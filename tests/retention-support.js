@@ -13,7 +13,7 @@ export async function fixture(seed = {}) {
   return { store, admin: { ...admin, administrator: true }, session };
 }
 export async function request(store, route, method = 'GET', input = {}, session, extra = {}) {
-  const req = { method, body: input, query: input, socket: { remoteAddress: 'test' },
+  const req = { method, body: input, query: input, socket: { remoteAddress: '192.0.2.1' },
     headers: { origin, ...(session ? { cookie: `__Host-colorloop=${session.token}`,
       'x-csrf-token': session.csrfToken } : {}), ...extra.headers } };
   const res = { statusCode: 200, headers: {}, setHeader(k, v) { this.headers[k] = v; },

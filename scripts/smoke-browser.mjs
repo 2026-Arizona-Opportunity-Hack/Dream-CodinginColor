@@ -37,6 +37,25 @@ try{
   await evaluate('new Promise(resolve=>setTimeout(resolve,100))');
   assert.equal(await evaluate("[...document.querySelectorAll('main [role=alert]')].map(e=>e.textContent).join('')"),'',`${screen} rendered an error`);
  }
+ // Exercise role policy through the real forms and backend, not just helper tests.
+ await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Manage board member').click()");
+ await wait("document.querySelector('#modal').open");
+ assert.equal(await evaluate("document.querySelector('#modal-form').elements.namedItem('role').value"),'board-member');
+ await evaluate("document.querySelector('#close-modal').click();[...document.querySelectorAll('main button')].find(b=>b.textContent==='Manage user account').click()");
+ await wait("document.querySelector('#modal').open");
+ assert.equal(await evaluate("document.querySelector('#modal-form').elements.namedItem('roleId').value"),'');
+ await evaluate(`(()=>{const f=document.querySelector('#modal-form');f.elements.namedItem('name').value='Synthetic explicit administrator';f.elements.namedItem('email').value='explicit-admin@example.test';f.elements.namedItem('password').value=${JSON.stringify(password)};f.requestSubmit();})()`);
+ await wait("document.querySelector('#modal-error').textContent.includes('Choose an account role')");
+ const confirmGrant=async accept=>{
+  const opening=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Administrator confirmation did not open')),5000);const listener=event=>{const data=JSON.parse(event.data);if(data.method==='Page.javascriptDialogOpening'){clearTimeout(timer);websocket.removeEventListener('message',listener);resolve(data.params);}};websocket.addEventListener('message',listener);});
+  const submission=evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.namedItem('roleId').value='administrator';f.requestSubmit();})()");
+  const dialog=await opening;assert.match(dialog.message,/Grant administrator access/);
+  await cdp('Page.handleJavaScriptDialog',{accept});await submission;
+ };
+ await confirmGrant(false);await wait("document.querySelector('#modal-error').textContent.includes('not granted')");
+ assert.equal((await database.query("SELECT count(*)::int AS n FROM users WHERE email='explicit-admin@example.test'")).rows[0].n,0);
+ await confirmGrant(true);await wait("!document.querySelector('#modal').open");
+ assert.equal((await database.query("SELECT role_id FROM users WHERE email='explicit-admin@example.test'")).rows[0].role_id,'administrator');
  // Verify the rendered donor edit and printable funder workflow against real SQL.
  await evaluate("location.hash='donors'");await wait("document.querySelector('[data-donor]')");
  const donorId=await evaluate("document.querySelector('[data-donor]').dataset.donor");
@@ -51,7 +70,7 @@ try{
  await writeFile(join(directory,'synthetic-funder.pdf'),Buffer.from(pdf.data,'base64'));
  assert.deepEqual(errors,[]);
  await evaluate("document.querySelector('#session').click()");await wait("document.querySelector('#session').textContent==='Sign in'");
- console.log(JSON.stringify({result:'PASS',realSql:true,secureBrowserCookie:true,screens:screens.length,donorProfile:true,funderPdfBytes:Buffer.from(pdf.data,'base64').length,browserExceptions:errors.length,logout:true}));
+ console.log(JSON.stringify({result:'PASS',realSql:true,secureBrowserCookie:true,screens:screens.length,donorProfile:true,funderPdfBytes:Buffer.from(pdf.data,'base64').length,browserExceptions:errors.length,accountRoleSafety:true,logout:true}));
 }finally{
  websocket?.close();if(chrome){const exited=once(chrome,'exit');chrome.kill('SIGTERM');await exited;}
  if(server)await new Promise(resolve=>server.close(resolve));await database.close();await rm(directory,{recursive:true,force:true});

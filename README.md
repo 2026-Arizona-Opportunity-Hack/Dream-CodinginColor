@@ -95,7 +95,7 @@ enabled. See the [demo walkthrough and integration guide](docs/INTEGRATION.md).
 
 Keep `COLORLOOP_DEMO=false` and omit `COLORLOOP_STORE=mock` for persistent use.
 Configure the server-only `DATABASE_URL` and exact HTTPS `APP_ORIGIN`. Review
-migrations 001–003 and existing user references before applying them. No command
+the ordered migrations and historical identity reconciliation before applying them. No command
 below has been run against a live database during integration:
 
 - `npm run db:check`: explicit read-only connection check.
@@ -114,6 +114,7 @@ unsent without an explicitly integrated provider.
 RUN_NEON_TESTS=false npm test
 npm audit
 npm audit --omit=dev
+npm run build
 node scripts/smoke-integration.mjs
 node scripts/smoke-browser.mjs
 node scripts/audit-frontend.mjs
@@ -123,6 +124,20 @@ The two smoke scripts use only synthetic isolated SQL and temporary HTTPS
 certificates. Browser checks require local Chrome (override `CHROME_PATH` when
 needed). No Vercel CLI or new package is needed. The live Neon test remains opt-in.
 Both npm audits reported zero vulnerabilities during integration.
+
+## Verified pre-merge fixes
+
+See [pre-merge fixes, safe upgrade and hosting decision](docs/PREMERGE-FIXES.md).
+Merges preserve verified funder evidence and its original attribution. Account
+forms use safe role defaults and require administrator confirmation, enforced by
+the backend. New compatibility migrations preserve unresolved historical user
+references without inventing accounts; existing migration checksums are unchanged.
+
+`npm run build` produces only `dist/index.html` and `dist/public/...`.
+`vercel.json` serves that output while preserving native API routes. There are
+still **33** frameworkless API functions: deployment requires a compatible Vercel
+plan, or separately approved and validated consolidation for Hobby. No plan was
+changed, and no deployment was performed.
 
 ## Integration and operational limits
 
@@ -136,7 +151,7 @@ radar/reporting. Existing email addresses never imply contact consent. Funder
 outcomes require explicit evidence; none are inferred from gifts. PDF export uses
 browser printing. Board attribution uses current ownership; activity counts with
 program filters exclude unclassified activities. Hosted routing, Neon concurrency,
-production throttling/proxy identity and delivery reconciliation need deployment
+the Vercel ingress-IP contract and delivery reconciliation need deployment
 validation. Current role permissions apply across the single nonprofit; they are
 not an assignment-scoped privacy boundary.
 

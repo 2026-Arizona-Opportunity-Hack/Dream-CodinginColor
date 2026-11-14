@@ -10,6 +10,7 @@ import { migrate } from '../lib/database-setup.js';
 import { initializeSyntheticDemo } from '../lib/demo-data.js';
 import { startServer } from './dev.js';
 import { createApiClient } from '../public/js/api.js';
+import { buildStatic } from './build-static.js';
 
 const directory=await mkdtemp(join(tmpdir(),'colorloop-smoke-'));
 const database=await createIsolatedDatabase();let server;
@@ -20,7 +21,8 @@ try {
   execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=localhost','-keyout',join(directory,'tls.key'),'-out',join(directory,'tls.crt')],{stdio:'ignore'});
   const key=await readFile(join(directory,'tls.key')),cert=await readFile(join(directory,'tls.crt'));
   // Reserve a real origin first; each request still receives exact same-origin/CSRF checks.
-  server=await startServer({database,store,port:0,tls:{key,cert},origin:'https://localhost'});
+  const staticBuild=await buildStatic(join(directory,'dist'));
+  server=await startServer({database,store,port:0,tls:{key,cert},origin:'https://localhost',staticRoot:staticBuild.output});
   const base=`https://127.0.0.1:${server.address().port}`;
   let cookie='';
   const fetcher=(path,options={})=>new Promise((resolve,reject)=>{
@@ -32,6 +34,8 @@ try {
   });
   const api=createApiClient(fetcher);
   assert.equal((await fetcher('/')).status,200);
+  for(const asset of ['/public/js/app.js','/public/js/api.js','/public/js/account-forms.js','/public/css/app.css'])assert.equal((await fetcher(asset)).status,200);
+  for(const privatePath of ['/lib/auth.js','/.env','/db/migrations/002_relationship_security.sql','/package.json'])assert.equal((await fetcher(privatePath)).status,404);
   await assert.rejects(api('/donors'),e=>e.status===401);
   const me=await api('/auth/login',{method:'POST',body:{email:'admin@example.test',password}});
   assert.equal(me.administrator,undefined); // Login returns a public account; /me supplies permissions.

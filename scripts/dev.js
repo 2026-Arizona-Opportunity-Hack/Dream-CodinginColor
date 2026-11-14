@@ -9,8 +9,9 @@ import { contextKey } from '../lib/permissions.js';
 import { createHandler } from '../lib/retention-api.js';
 import { handlerFor } from '../lib/donor-routes.js';
 
-export async function startServer({ database, store, port=Number(process.env.PORT||3000), tls, origin }={}) {
-  const root=fileURLToPath(new URL('../',import.meta.url));
+export async function startServer({ database, store, port=Number(process.env.PORT||3000), tls, origin,
+  staticRoot=fileURLToPath(new URL('../',import.meta.url)) }={}) {
+  const root=resolve(staticRoot);
   const scheme=tls?'https':'http';origin??=process.env.APP_ORIGIN||`${scheme}://localhost:${port}`;
   const dataRoutes=new Map([['/api/donors','donors'],['/api/donations','donations'],['/api/imports/preview','preview'],['/api/imports/confirm','confirm'],['/api/merges/candidates','candidates'],['/api/merges','merges'],['/api/custom-fields','fields'],['/api/campaigns','campaigns']]);
   const workflow=new Set(['auth/login','auth/logout','auth/me','users','roles','assignments','assignments/members','activities','tasks','tasks/reminders','outreach/templates','outreach/drafts','outreach/approve','outreach/send','outreach/history','retention/at-risk','retention/settings']);
