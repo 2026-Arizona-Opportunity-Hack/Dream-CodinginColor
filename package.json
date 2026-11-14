@@ -10,12 +10,17 @@
   "scripts": {
     "db:migrate": "node scripts/database.js migrate",
     "db:seed": "node scripts/database.js seed",
-    "test": "node --test"
+    "test": "node --test",
+    "db:check": "node scripts/database.js check"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1",
     "csv-parse": "^7.0.3",
     "dotenv": "^18.0.10",
+    "fflate": "^0.8.3",
     "read-excel-file": "^9.3.17"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16"
   }
 }

@@ -56,7 +56,7 @@ Judges score **Scope, Documentation, Polish and Security**, plus a separate **Ac
 - Frontend: vanilla HTML/CSS/JavaScript (planned)
 - Backend: Node.js ES modules and Vercel Functions
 - Database: Neon PostgreSQL
-- Imports: `csv-parse` and `xlsx`
+- Imports: `csv-parse` and `read-excel-file`, with bounded XLSX archive inspection
 
 ## Run it locally
 
@@ -66,31 +66,37 @@ cd Dream-CodinginColor
 cp .env.example .env   # fill in your own values — never commit .env
 npm install
 npm test
-npm run dev
+npm run db:check  # requires your development Neon DATABASE_URL
 ```
 
-Use Node.js 22 or newer. `npm run dev` uses the local Vercel CLI; first-time
-setup may prompt you to sign in and link the shared Vercel project. The initial
-function is available at `/api/health`; the application UI is not built yet.
-`dotenv` loads `.env` for database scripts; Vercel loads local environment values
-for functions. Never expose `DATABASE_URL` to browser JavaScript.
+Use Node.js 22 or newer. The database/API implementation uses server-side Vercel
+Functions; the application UI and authentication are being built on teammate
+branches. There is currently no `dev` script or bundled Vercel CLI. Protected
+endpoints return 401 until the real permission middleware is integrated.
+`dotenv` loads `.env` for server scripts; never expose `DATABASE_URL` to browser
+JavaScript. Set `APP_ORIGIN` to the exact UI origin for JSON mutations.
 
 ### Database commands
 
-Set `DATABASE_URL` in `.env` to your Neon connection string. No schema or seed data
-is included yet. Both commands report a successful no-op when their folder has no
-SQL files, without connecting to a database.
+Set `DATABASE_URL` to a development Neon connection string, then run
+`npm run db:check` to verify a real connection before applying schema changes.
+Neon has not been verified in this workspace because credentials are absent.
 
-- `npm run db:migrate`: apply `db/migrations/*.sql` in filename order, tracking
-  applied filenames in `colorloop_migrations`. Use names like `001_create_donors.sql`.
-  Add new migrations instead of editing applied ones.
-- `npm run db:seed`: execute `db/seeds/*.sql` in filename order on every invocation.
-  Use repeatable SQL (`ON CONFLICT`, for example) and synthetic development data.
+- `npm run db:migrate`: apply versioned `db/migrations/*.sql` atomically, tracking
+  immutable files and checksums in `colorloop_migrations`.
+- `ALLOW_SYNTHETIC_SEED=true npm run db:seed`: load repeatable synthetic examples
+  from `db/seed.sql` on a designated development database. Production environment
+  flags block seeds. Do not point this command at production.
+- `npm test`: run isolated PostgreSQL-engine, import, and route-security tests.
+- `RUN_NEON_TESTS=true node --test test/neon.test.js`: optional live read-only check.
 
-Each command runs its SQL files in one transaction and rolls back on failure.
-Do not put transaction statements or commands requiring execution outside a
-transaction in these files. Run database commands explicitly against the intended
-database; they are not part of application startup or deployment.
+See [database setup and team schema handoff](docs/database-integration.md),
+[donor/import API contracts](docs/donor-api.md), and
+[security review and remaining verification](docs/security-audit.md).
+The schema covers donors, gifts, campaigns/outcomes, import audit, aliases,
+custom definitions, and merge history. Auth/activity/task/outreach tables and user
+foreign keys await Teammate 2's final schema; no parallel auth schema is created.
+No hosted deployment has been tested or performed by this change.
 
 ### Shared package workflow
 
@@ -99,15 +105,14 @@ package changes in the team channel, use `npm install <package>` to update both
 files, and review both in the same PR. Use `npm ci` for a clean install from the
 shared lockfile. Server scripts and Vercel Functions use ES module `import`/`export`;
 use `<script type="module">` for browser modules. Keep Node-only dependencies in
-server code. `npm test` checks import parsing and the initial health handler.
+server code. `npm test` checks import parsing, transactional database services, protected route behavior, and the initial health handler.
 
 ### Dependency audit
 
-The initial install reports advisories for the npm `xlsx` release (prototype
-pollution and regular expression denial of service), with no registry fix, plus
-advisories in the Vercel CLI development dependency tree. Review `npm audit`
-before enabling uploads of untrusted spreadsheets. No upload endpoint is included
-in this setup.
+The existing package graph uses `read-excel-file` instead of vulnerable npm
+`xlsx` and excludes the Vercel CLI. A synchronized install and `npm audit` report
+zero known advisories. Import limits and formula/XML checks are still enforced;
+see the security review for limits and integration checks before launch.
 
 ## Links
 

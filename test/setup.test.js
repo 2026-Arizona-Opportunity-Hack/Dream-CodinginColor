@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parse } from 'csv-parse/sync';
-import * as XLSX from 'xlsx';
+import { readSheet } from 'read-excel-file/node';
+import { workbook } from '../test-support/workbook.js';
 import { neon } from '@neondatabase/serverless';
 import handler from '../api/health.js';
 
@@ -11,12 +12,10 @@ test('CSV parsing preserves quoted commas in donor names', () => {
   ]);
 });
 
-test('XLSX can round-trip donor import data under ES modules', () => {
-  const rows = [{ name: 'Example Donor', amount: 100 }];
-  const book = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(rows), 'Donors');
-  const parsed = XLSX.read(XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }), { type: 'buffer' });
-  assert.deepEqual(XLSX.utils.sheet_to_json(parsed.Sheets.Donors), rows);
+test('XLSX parser reads synthetic data under ES modules', async () => {
+  assert.deepEqual(await readSheet(workbook([['name', 'amount'], ['Example Donor', '100']])), [
+    ['name', 'amount'], ['Example Donor', '100'],
+  ]);
 });
 
 test('Neon driver exports its ES module connection factory', () => {

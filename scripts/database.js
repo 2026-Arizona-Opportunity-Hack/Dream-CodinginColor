@@ -1,45 +1,16 @@
-import 'dotenv/config';
-import { readdir, readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import { Pool } from '@neondatabase/serverless';
+import { transaction, close } from '../lib/db.js';
+import { migrate, seed } from '../lib/database-setup.js';
 
 const mode = process.argv[2];
-if (!['migrate', 'seed'].includes(mode)) {
-  throw new Error('Usage: node scripts/database.js <migrate|seed>');
-}
-const directory = new URL(`../db/${mode === 'migrate' ? 'migrations' : 'seeds'}/`, import.meta.url);
-const files = (await readdir(directory)).filter((name) => name.endsWith('.sql')).sort();
-if (files.length === 0) {
-  console.log(`No ${mode} SQL files found in ${fileURLToPath(directory)}.`);
-} else {
-  if (!process.env.DATABASE_URL) throw new Error('Set DATABASE_URL in .env before running database commands.');
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  let client;
-  try {
-    client = await pool.connect();
-    await client.query('BEGIN');
-    // Serialize setup commands so teammates cannot apply the same migration twice.
-    await client.query('SELECT pg_advisory_xact_lock(78234901)');
-    if (mode === 'migrate') {
-      await client.query('CREATE TABLE IF NOT EXISTS colorloop_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())');
-    }
-    for (const name of files) {
-      if (mode === 'migrate') {
-        const applied = await client.query('SELECT name FROM colorloop_migrations WHERE name = $1', [name]);
-        if (applied.rowCount) continue;
-      }
-      await client.query(await readFile(new URL(name, directory), 'utf8'));
-      if (mode === 'migrate') {
-        await client.query('INSERT INTO colorloop_migrations (name) VALUES ($1)', [name]);
-      }
-      console.log(`Applied ${name}`);
-    }
-    await client.query('COMMIT');
-  } catch (error) {
-    if (client) await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client?.release();
-    await pool.end();
+if (!['migrate', 'seed', 'check'].includes(mode)) throw new Error('Usage: node scripts/database.js <migrate|seed|check>');
+try {
+  if (mode === 'seed' && (process.env.ALLOW_SYNTHETIC_SEED !== 'true' || process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production')) {
+    throw new Error('Seed is development-only. Set ALLOW_SYNTHETIC_SEED=true for an intended development database.');
   }
-}
+  await transaction(mode === 'check' ? (query) => query('SELECT 1 AS connected') : mode === 'seed' ? seed : migrate);
+  console.log(mode === 'check' ? 'Database connection verified by SELECT 1.' : `${mode} completed atomically.`);
+} catch {
+  // Do not print driver errors: they may contain credentials or donor data.
+  console.error(!process.env.DATABASE_URL ? 'Set DATABASE_URL in .env before running database commands.' : mode === 'seed' && process.env.ALLOW_SYNTHETIC_SEED !== 'true' ? 'Set ALLOW_SYNTHETIC_SEED=true only for an intended development database.' : 'Database command failed; inspect configuration and migration state privately.');
+  process.exitCode = 1;
+} finally { await close(); }
