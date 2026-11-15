@@ -49,65 +49,118 @@ Judges score **Scope, Documentation, Polish and Security**, plus a separate **Ac
 
 ## What we built
 
-<!-- Two or three sentences: the problem, who it helps, what the nonprofit can do now that they couldn't before -->
+ColorLoop combines Coding in Color's donor records, CSV/XLSX imports, reviewed
+merges, board assignments, relationship timelines, follow-up tasks, human-approved
+outreach, Lapsed-Donor Radar, retention analytics, and printable funder reports.
+Accounts, sessions, permissions, activities, tasks, drafts, approval/delivery
+history and audit events now use normalized PostgreSQL tables. The CIC frontend
+uses the shared API contracts with secure cookies and CSRF tokens.
+
+The full stack has been tested with an isolated PostgreSQL engine and real local
+HTTPS/Chrome. Live Neon migrations, hosted Vercel deployment, and real message
+delivery have not been performed. Provider delivery stays disabled.
 
 ## Tech stack
 
-- Frontend: vanilla HTML/CSS/JavaScript (planned)
-- Backend: Node.js ES modules and Vercel Functions
-- Database: Neon PostgreSQL
-- Imports: `csv-parse` and `xlsx`
+- Vanilla HTML/CSS/JavaScript with CIC branding and keyboard-accessible dialogs
+- Node.js 22+ ES modules and Vercel Functions
+- Neon PostgreSQL, connection-bound transactions, additive SQL migrations
+- `csv-parse` and bounded `read-excel-file`/`fflate` XLSX parsing
+- Node scrypt, opaque durable sessions, CSRF tokens and server-side RBAC
+- Development-only PGlite for isolated synthetic SQL tests and demos
 
-## Run it locally
+## Run a safe synthetic demo
 
 ```bash
-git clone https://github.com/2026-Arizona-Opportunity-Hack/Dream-CodinginColor.git
-cd Dream-CodinginColor
-cp .env.example .env   # fill in your own values — never commit .env
-npm install
-npm test
-npm run dev
+npm ci
+mkdir -p node_modules/.cache/colorloop
+openssl req -x509 -newkey rsa:2048 -nodes -days 7 -subj /CN=localhost \
+  -keyout node_modules/.cache/colorloop/tls.key \
+  -out node_modules/.cache/colorloop/tls.crt
+cp .env.example .env
 ```
 
-Use Node.js 22 or newer. `npm run dev` uses the local Vercel CLI; first-time
-setup may prompt you to sign in and link the shared Vercel project. The initial
-function is available at `/api/health`; the application UI is not built yet.
-`dotenv` loads `.env` for database scripts; Vercel loads local environment values
-for functions. Never expose `DATABASE_URL` to browser JavaScript.
+In your ignored `.env`, set `COLORLOOP_DEMO=true`, a local `DEMO_PASSWORD` of at
+least 15 characters, `APP_ORIGIN=https://localhost:3000`, and the TLS paths shown
+in `.env.example`. Then run `npm run dev` and open https://localhost:3000.
+Accept the local development certificate warning for this synthetic demo only.
+Sign in as `admin@example.test` with your chosen demo password.
 
-### Database commands
+Demo mode creates a fresh in-memory PostgreSQL database with synthetic accounts,
+donors and verified synthetic gifts each run. It never connects to Neon, even if
+`DATABASE_URL` exists. It is rejected in production/on Vercel. Secure cookies stay
+enabled. See the [demo walkthrough and integration guide](docs/INTEGRATION.md).
 
-Set `DATABASE_URL` in `.env` to your Neon connection string. No schema or seed data
-is included yet. Both commands report a successful no-op when their folder has no
-SQL files, without connecting to a database.
+## Neon setup and authentication
 
-- `npm run db:migrate`: apply `db/migrations/*.sql` in filename order, tracking
-  applied filenames in `colorloop_migrations`. Use names like `001_create_donors.sql`.
-  Add new migrations instead of editing applied ones.
-- `npm run db:seed`: execute `db/seeds/*.sql` in filename order on every invocation.
-  Use repeatable SQL (`ON CONFLICT`, for example) and synthetic development data.
+Keep `COLORLOOP_DEMO=false` and omit `COLORLOOP_STORE=mock` for persistent use.
+Configure the server-only `DATABASE_URL` and exact HTTPS `APP_ORIGIN`. Review
+the ordered migrations and historical identity reconciliation before applying them. No command
+below has been run against a live database during integration:
 
-Each command runs its SQL files in one transaction and rolls back on failure.
-Do not put transaction statements or commands requiring execution outside a
-transaction in these files. Run database commands explicitly against the intended
-database; they are not part of application startup or deployment.
+- `npm run db:check`: explicit read-only connection check.
+- `npm run db:migrate`: apply additive migrations atomically with checksum tracking.
+- `BOOTSTRAP_ADMIN=true node scripts/bootstrap-admin.js`: explicit operator account
+  bootstrap, using private `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` values.
+  Requires an empty account store; remove the bootstrap password afterward.
 
-### Shared package workflow
+Production session/retention storage fails closed when unavailable. There is no
+public registration or default production password. Donor-facing messages remain
+unsent without an explicitly integrated provider.
 
-All teammates use this root `package.json` and `package-lock.json`. Coordinate
-package changes in the team channel, use `npm install <package>` to update both
-files, and review both in the same PR. Use `npm ci` for a clean install from the
-shared lockfile. Server scripts and Vercel Functions use ES module `import`/`export`;
-use `<script type="module">` for browser modules. Keep Node-only dependencies in
-server code. `npm test` checks import parsing and the initial health handler.
+## Verification
 
-### Dependency audit
+```bash
+RUN_NEON_TESTS=false npm test
+npm audit
+npm audit --omit=dev
+npm run build
+node scripts/smoke-integration.mjs
+node scripts/smoke-browser.mjs
+node scripts/audit-frontend.mjs
+```
 
-The initial install reports advisories for the npm `xlsx` release (prototype
-pollution and regular expression denial of service), with no registry fix, plus
-advisories in the Vercel CLI development dependency tree. Review `npm audit`
-before enabling uploads of untrusted spreadsheets. No upload endpoint is included
-in this setup.
+The two smoke scripts use only synthetic isolated SQL and temporary HTTPS
+certificates. Browser checks require local Chrome (override `CHROME_PATH` when
+needed). No Vercel CLI or new package is needed. The live Neon test remains opt-in.
+Both npm audits reported zero vulnerabilities during integration.
+
+## Verified pre-merge fixes
+
+See [pre-merge fixes, safe upgrade and hosting decision](docs/PREMERGE-FIXES.md).
+Merges preserve verified funder evidence and its original attribution. Account
+forms use safe role defaults and require administrator confirmation, enforced by
+the backend. New compatibility migrations preserve unresolved historical user
+references without inventing accounts; existing migration checksums are unchanged.
+
+`npm run build` produces only `dist/index.html` and `dist/public/...`.
+`vercel.json` serves that output while preserving native API routes. There are
+still **33** frameworkless API functions: deployment requires a compatible Vercel
+plan, or separately approved and validated consolidation for Hobby. No plan was
+changed, and no deployment was performed.
+
+## Integration and operational limits
+
+See [integration setup, security, demo and limitations](docs/INTEGRATION.md),
+[donor/import API contracts](docs/donor-api.md), and
+[retention API details](docs/retention-api.md). Earlier teammate handoffs describe
+branch-specific contracts; the integration guide takes precedence.
+
+Repeated imports with the same source and transaction IDs reuse existing gifts.
+The import preview distinguishes valid rows from existing transactions; its
+`possible_duplicate_gift` flag covers amount/date review for missing IDs only.
+
+Unverified currency/payment status is stored as unknown and excluded from verified
+radar/reporting. Existing email addresses never imply contact consent. Funder
+outcomes require explicit evidence; none are inferred from gifts. PDF export uses
+browser printing. Board attribution uses current ownership; activity counts with
+program filters exclude unclassified activities. Hosted routing, Neon concurrency,
+the Vercel ingress-IP contract and delivery reconciliation need deployment
+validation. Current role permissions apply across the single nonprofit; they are
+not an assignment-scoped privacy boundary.
+
+All code stays in this repository. Package changes remain coordinated through the
+shared manifest/lockfile. Never commit `.env`, credentials, or real donor data.
 
 ## Links
 
