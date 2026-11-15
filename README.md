@@ -158,6 +158,8 @@ SQL, genuine MFA and mocked provider responses; they send no real emails. Browse
 checks require installed Chrome (`CHROME_PATH` can override its location).
 After the approved organization-reimport fix, the full suite passed **202 tests,
 0 failed, 1 skipped**, including two new classification and retry regressions.
+The internal impact-preview sprint passed **207 tests, 0 failed, 1 skipped**,
+preserving that baseline and adding five focused presentation/authorization tests.
 
 Local evidence includes 100 Lighthouse accessibility on 19 authenticated views,
 75 responsive/keyboard views, zero vulnerabilities in both dependency audits, and
@@ -175,7 +177,8 @@ The rehearsal starts empty isolated SQL, uses Chrome's actual file upload, and c
 import, merge, exact-file reimport, approval-only outreach, tasks and Lapsed Donor
 Radar. Results and screenshots are written under the OS temporary directory.
 See [latest rehearsal results and known blockers](docs/FINAL-DEMO-REHEARSAL.md).
-`npm run build` outputs only `dist/index.html` and `dist/public/...`.
+`npm run build` outputs only `dist/index.html` and `dist/public/...` (18 allowlisted
+assets including the internal impact preview).
 A stale root `.vercel/output` must not be deployed with `--prebuilt`; any approved
 release needs a fresh linked-project build. Isolated packaging fixtures are not deploy targets.
 
@@ -195,6 +198,13 @@ Team Dream. The following roles were supplied by the team representative and rem
 
 ## Current limitations
 
+- The timeboxed enhancement adds **Donors → Giving → Preview donor impact
+  (internal)** for users with reporting permission. It reuses authorized gift and
+  verified-outcome data, with no inferred impact or public donor access. Donor login,
+  secure account linking and publication remain unfinished. Same-login Demo Workspace,
+  hosted judge access and signup email verification are also deferred; existing MFA
+  and CIC account approval remain unchanged. See the [safe sprint handoff](docs/SPRINT-HANDOFF.md)
+  for the local-only judge fallback and validation.
 - Full Zeffy/Benevity provider export compatibility is not certified.
 - Production email transport is not configured in the inspected Vercel variable
   listing; authenticated hosted delivery has not been verified.

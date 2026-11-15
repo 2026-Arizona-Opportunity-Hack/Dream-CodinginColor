@@ -2,6 +2,7 @@ import {loadFollowUps} from './mentor-data.js';
 import {api,esc,rows} from './api.js';
 import {displayMoney,displayDate} from './ui.js';
 import {donorListLocation,profileUrl,givingSummary,donorTimeline,outreachStatus} from './donor-view.js';
+import {impactPreview,impactPreviewHtml} from './impact-preview.js';
 
 export async function renderDonorProfile(root,id,tab,ctx){
  const {table,panel,action,user,workflows,advanced}=ctx;
@@ -37,4 +38,15 @@ export async function renderDonorProfile(root,id,tab,ctx){
   if(workflows.can('donors.write'))action('Edit donor details',()=>workflows.editDonor(id),section.querySelector('#edit-donor-actions'));
  }
  const extra=document.createElement('div');extra.className='toolbar';section.append(extra);advanced?.(donor,data.gifts,extra,tab);
+ if(tab==='giving'&&user.permissions.includes('reports.read')){
+  const preview=document.createElement('div');section.append(preview);
+  action('Preview donor impact (internal)',async()=>{
+   try{
+    const packet=await api(`/reports/funder?donorId=${encodeURIComponent(id)}&fullHistory=true`);
+    if(!preview.isConnected)return;
+    preview.innerHTML=impactPreviewHtml(impactPreview(packet));
+    preview.querySelector('h2').tabIndex=-1;preview.querySelector('h2').focus();
+   }catch(error){if(preview.isConnected){preview.replaceChildren();const message=document.createElement('p');message.setAttribute('role','alert');message.textContent=error.message;preview.append(message);}}
+  },extra);
+ }
 }

@@ -196,6 +196,17 @@ try{
  assert.equal(await evaluate("location.hash.includes('/'+"+JSON.stringify(donorId)+")"),true);
  assert.equal(await evaluate("document.querySelector('#donor-section').textContent.includes('Complete gift history')"),true);
  assert.match(await evaluate("document.querySelector('#donor-section').textContent"),/\$1,000\.00/);
+ await evaluate("[...document.querySelectorAll('#donor-section button')].find(b=>b.textContent==='Preview donor impact (internal)').click()");
+ await wait("document.querySelector('[aria-label=\"Internal donor impact preview\"]')");
+ assert.match(await evaluate("document.querySelector('[aria-label=\"Internal donor impact preview\"]').textContent"),/Internal staff preview/);
+ assert.match(await evaluate("document.querySelector('[aria-label=\"Internal donor impact preview\"]').textContent"),/\$1,000\.00/);
+ assert.equal(await evaluate("[...document.querySelectorAll('main [role=alert]')].some(e=>e.textContent.length>0)"),false);
+ await evaluate("[...document.querySelectorAll('#donor-section button')].find(b=>b.textContent==='Record verified outcome').click()");await wait("document.querySelector('#modal').open");
+ await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.description.value='Synthetic workshop milestone; no exact donor-dollar attribution';f.elements.evidence_reference.value='Synthetic rehearsal evidence';f.elements.verified_at.value='2026-11-15';f.elements.period_start.value='2026-11-01';f.elements.period_end.value='2026-11-15';f.elements.program.value='Synthetic coding workshop';f.requestSubmit();})()");await wait("!document.querySelector('#modal').open");
+ await wait("[...document.querySelectorAll('#donor-section button')].some(b=>b.textContent==='Preview donor impact (internal)')");
+ await evaluate("[...document.querySelectorAll('#donor-section button')].find(b=>b.textContent==='Preview donor impact (internal)').click()");
+ await wait("document.querySelector('[aria-label=\"Internal donor impact preview\"]')?.textContent.includes('Synthetic workshop milestone')");
+ assert.equal(await evaluate("document.querySelector('[aria-label=\"Internal donor impact preview\"]').textContent.includes('Synthetic rehearsal evidence')"),false);
  assert.equal(await evaluate("[...document.querySelectorAll('#donor-section time')].some(t=>t.textContent.includes('T00:'))"),false);
  await evaluate("[...document.querySelectorAll('.profile-actions button')].find(b=>b.textContent==='Log a call / note').click()");
  await wait("document.querySelector('#modal-title').textContent==='Record a conversation'");
