@@ -1,5 +1,7 @@
 # ColorLoop frontend and reports integration
 
+> Current requirements-branch behavior and deployment gates: [CIC-REQUIREMENTS.md](CIC-REQUIREMENTS.md), [DASHBOARD-API.md](DASHBOARD-API.md), and [DEPLOYMENT-READINESS.md](DEPLOYMENT-READINESS.md). Status/counts below may describe earlier teammate branches.
+
 > Integration update: see [INTEGRATION.md](INTEGRATION.md) for current persistence,
 > shared API mappings, synthetic HTTPS demo and deployment gates. Branch-specific
 > status and proposed interfaces below describe the original teammate handoff.

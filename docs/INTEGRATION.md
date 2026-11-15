@@ -1,5 +1,7 @@
 # ColorLoop integration, demo and operational handoff
 
+> Current requirements-branch behavior and deployment gates: [CIC-REQUIREMENTS.md](CIC-REQUIREMENTS.md), [DASHBOARD-API.md](DASHBOARD-API.md), and [DEPLOYMENT-READINESS.md](DEPLOYMENT-READINESS.md). Status/counts below may describe earlier teammate branches.
+
 > Current pre-merge changes: see [PREMERGE-FIXES.md](PREMERGE-FIXES.md) for safe
 > static builds, role confirmation, evidence transfer, legacy identity upgrades
 > and the remaining hosting-capacity decision.

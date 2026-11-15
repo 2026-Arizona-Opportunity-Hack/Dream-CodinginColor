@@ -45,6 +45,8 @@ export function createApiClient(fetcher = globalThis.fetch) {
       return raw('/users',method === 'POST'?'POST':'PATCH',{...values,roleId:role,boardMember:true,...(segments[1]?{id:segments[1]}:{})});
     }
     if (p === '/roles' && method === 'GET') return (await raw(p)).map(r=>({...r,name:r.id,label:r.name}));
+    if (p === '/users' && method==='PATCH') {const input={...body};if(!input.password)delete input.password;return raw(p,method,input);}
+    if (p === '/roles/retire') return raw(p,method,body);
     if (segments[0] === 'roles' && segments[1]) {
       const roles=await raw('/roles'), role=roles.find(r=>r.id===segments[1]);
       if (!role) throw new Error('Role no longer exists.');
@@ -91,7 +93,7 @@ export function createApiClient(fetcher = globalThis.fetch) {
     }
     if (p === '/activities') {
       if(method==='GET')return (await raw(path)).map(a=>({...a,note:a.content,created_at:a.occurredAt}));
-      const {donor_id,note,type}=body;return raw(p,'POST',{donorId:donor_id,type:type||'note',content:note});
+      const {donor_id,note,type,program}=body;return raw(p,'POST',{donorId:donor_id,type:type||'note',content:note,...(program?{program}:{})});
     }
     if (p === '/tasks/reminders') return raw(p,method,body);
     if (segments[0] === 'tasks') {
@@ -101,7 +103,7 @@ export function createApiClient(fetcher = globalThis.fetch) {
         ...(due_date?{dueAt:`${due_date}T23:59:59.999Z`}:{}),...(assignee_id?{assigneeId:assignee_id}:{})};
       return raw('/tasks',method,{...values,...(segments[1]?{id:segments[1]}:{})});
     }
-    if (p === '/outreach/drafts' && method==='GET') { const list=await raw(p);list.forEach(d=>drafts.set(d.id,d));return list; }
+    if (p === '/outreach/drafts' && method==='GET') { const list=await raw(path);list.forEach(d=>drafts.set(d.id,d));return list; }
     if (segments[0] === 'outreach' && segments[1] === 'drafts' && segments[2]) {
       const draft=drafts.get(segments[2]);if(!draft)throw new Error('Reopen this draft before changing it.');
       return raw(segments[3]?`/outreach/${segments[3]}`:'/outreach/drafts',method,
@@ -109,10 +111,10 @@ export function createApiClient(fetcher = globalThis.fetch) {
     }
     if (p === '/outreach/drafts' && method==='POST') {
       if(body.type==='quarterly_board_summary')return raw('/tasks/reminders','POST',{kind:'quarterly'});
-      return raw(p,'POST',{donorId:body.donor_id,templateId:body.type==='thank_you'?'thank-you-email':'follow-up'});
+      return raw(p,'POST',{donorId:body.donor_id,templateId:body.templateId||(body.type==='thank_you'?'thank-you-email':'follow-up')});
     }
-    if (p === '/outreach/history') return (await raw(p)).map(h=>({...h,subject:h.subject||'Message status update',sent_at:h.status==='sent'?h.at:null}));
-    if (p === '/retention/at-risk' && method==='GET') return (await raw(p)).map(d=>({...d,name:d.donorName,last_gift_date:d.lastDonationAt.slice(0,10),next_action:d.reason}));
+    if (p === '/outreach/history') return (await raw(path)).map(h=>({...h,subject:h.subject||'Message status update',sent_at:h.status==='sent'?h.at:null,status_label:h.providerId==='human-attested'?'Human-reported sent':h.status}));
+    if (p === '/retention/at-risk' && method==='GET') return (await raw(path)).map(d=>({...d,name:d.donorName,last_gift_date:d.lastDonationAt.slice(0,10),next_action:d.reason}));
     if (p === '/merges/candidates') {
       const list=await all(p), unique=new Map();for(const pair of list){unique.set(pair.donor_id,{id:pair.donor_id,name:pair.display_name});unique.set(pair.candidate_id,{id:pair.candidate_id,name:pair.candidate_name});}return [...unique.values()];
     }
@@ -127,13 +129,13 @@ export function createApiClient(fetcher = globalThis.fetch) {
       const bytes=new Uint8Array(await file.arrayBuffer());let encoded='';for(const byte of bytes)encoded+=String.fromCharCode(byte);
       const upload={filename:file.name,source:body.get('source'),content_base64:btoa(encoded)};
       const preview=await raw(p,'POST',upload);uploads.set(preview.batch_id,upload);
-      return {importId:preview.batch_id,columns:preview.headers};
+      return {importId:preview.batch_id,columns:preview.headers,mapping:Object.fromEntries(Object.entries(preview.mapping||{}).map(([key,index])=>[key,preview.headers[index]]))};
     }
     if (p === '/imports/preview') {
       const upload=uploads.get(body.importId);if(!upload)throw new Error('Upload this file again.');
       const aliases={name:'display_name',donated_at:'donation_date'};
       const mapping=Object.fromEntries(Object.entries(body.mapping).filter(([,v])=>v).map(([k,v])=>[aliases[k]||k,v]));
-      const preview=await raw(p,'POST',{...upload,mapping});
+      const preview=await raw(p,'POST',{...upload,mapping,payment_review:body.payment_review||{}});
       return {...preview,importId:preview.batch_id,validRows:preview.counts.valid,
         existingTransactions:preview.rows.filter(r=>!r.errors.length&&r.matching?.reason==='existing_transaction').length,
         duplicates:preview.rows.filter(r=>r.matching?.candidates.length||r.possible_duplicate_gift),errors:preview.rows.flatMap(r=>r.errors)};

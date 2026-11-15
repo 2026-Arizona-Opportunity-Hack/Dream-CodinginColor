@@ -37,6 +37,25 @@ try{
   await evaluate('new Promise(resolve=>setTimeout(resolve,100))');
   assert.equal(await evaluate("[...document.querySelectorAll('main [role=alert]')].map(e=>e.textContent).join('')"),'',`${screen} rendered an error`);
  }
+ // Exercise the actual column-mapping UI with the sanitized sample's shape.
+ await evaluate("location.hash='imports'");await wait("document.querySelector('#upload')");
+ const importCsv='First name,Last name,Email,Secondary email,Amount,First payment date (America/Phoenix),Phone,Company,Board member,Transaction ID\nSynthetic,Browser Import,browser-import@example.test,secondary-browser@example.test,25,"10/19/2026, 8:23 PM",+16025550123,Synthetic Company,board-a@example.test,REQ-BROWSER';
+ await evaluate(`(()=>{const form=document.querySelector('#upload');form.elements.namedItem('source').value='zeffy';const transfer=new DataTransfer();transfer.items.add(new File([${JSON.stringify(importCsv)}],'synthetic-sample.csv',{type:'text/csv'}));form.elements.namedItem('file').files=transfer.files;form.requestSubmit();})()`);
+ await wait("document.querySelector('#mapping')");
+ assert.equal(await evaluate("document.querySelector('#mapping').elements.namedItem('first_name').value"),'First name');
+ assert.equal(await evaluate("document.querySelector('#mapping').elements.namedItem('last_name').value"),'Last name');
+ assert.equal(await evaluate("document.querySelector('#mapping').elements.namedItem('secondary_email').value"),'Secondary email');
+ for(let retry=0;retry<2;retry++){
+  await evaluate("(()=>{const form=document.querySelector('#mapping');form.elements.namedItem('review_currency').value='USD';form.elements.namedItem('review_status').value='completed';form.requestSubmit();})()");
+  await wait("document.querySelector('#validated form')");
+  if(retry)assert.match(await evaluate("document.querySelector('#validated').textContent"),/1 existing transactions/);
+  await evaluate("(()=>{const form=document.querySelector('#validated form');const owner=form.querySelector('select[name^=\"owner:\"]');owner.value=[...owner.options].find(o=>o.textContent.includes('board-a@example.test')).value;form.requestSubmit();})()");
+  await wait("document.querySelector('#validated h3')?.textContent==='Import confirmed'");
+ }
+ const imported=(await database.query("SELECT d.*,g.id AS gift_id FROM donors d JOIN donations g ON d.id=g.donor_id WHERE g.source='zeffy' AND g.external_transaction_id='REQ-BROWSER'")).rows;
+ assert.equal(imported.length,1);assert.equal(imported[0].first_name,'Synthetic');assert.equal(imported[0].last_name,'Browser Import');assert.equal(imported[0].phone,'+16025550123');assert.equal(imported[0].company,'Synthetic Company');
+ assert.equal((await database.query('SELECT count(*)::int AS n FROM outreach_messages WHERE donation_id=$1',[imported[0].gift_id])).rows[0].n,1);
+ await evaluate("location.hash='settings'");await wait("[...document.querySelectorAll('main button')].some(b=>b.textContent==='Manage board member')");
  // Exercise role policy through the real forms and backend, not just helper tests.
  await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Manage board member').click()");
  await wait("document.querySelector('#modal').open");

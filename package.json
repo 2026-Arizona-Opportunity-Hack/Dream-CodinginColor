@@ -5,7 +5,7 @@
   "description": "Coding in Color donor and funder relationship platform",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   },
   "scripts": {
     "db:migrate": "node scripts/database.js migrate",

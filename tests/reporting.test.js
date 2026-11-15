@@ -44,7 +44,7 @@ test('authorized metrics return only filtered aggregates, without donor PII',asy
  try{
   const handler=createHandler({connect:async()=>({sql:()=>{}}),giftsFor:async(_,filters)=>{assert.equal(filters.program,'STEM');return [{...gift('private-id','2026-02-01',500),email:'private@example.invalid',name:'Private Donor'}];},activitiesFor:async()=>2});
   const res=response();await handler({method:'GET',headers:{authorization:'Bearer test-only-key'},query:{from:f.from,to:f.to,program:'STEM',boardMember:'board-1'}},res);
-  assert.equal(res.statusCode,200);assert.deepEqual(res.body.data,{from:f.from,to:f.to,program:'STEM',boardMember:'board-1',currency:'USD',donorTotal:1,giftTotal:5,giftCount:1,activityCount:2});
+  assert.equal(res.statusCode,200);assert.deepEqual(res.body.data,{from:f.from,to:f.to,program:'STEM',boardMember:'board-1',currency:'USD',donorTotal:1,giftTotal:5,giftCount:1,activityCount:2,byProgram:[{name:'STEM',total:5}],byBoardMember:[{name:'board-1',total:5}],monthly:[{month:'2026-02',total:5}]});
   assert.doesNotMatch(JSON.stringify(res.body),/private-id|private@example|Private Donor/);
  }finally{if(previous===undefined)delete process.env.REPORTING_API_KEY;else process.env.REPORTING_API_KEY=previous;}
 });

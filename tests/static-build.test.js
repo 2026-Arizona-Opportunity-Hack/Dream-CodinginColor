@@ -25,7 +25,7 @@ test('Vercel keeps API routing independent from the static allowlist and package
  const config=JSON.parse(await readFile(new URL('../vercel.json',import.meta.url),'utf8'));
  assert.equal(config.outputDirectory,'dist');assert.equal(config.framework,null);
  assert.equal(config.buildCommand,'npm run build');
- assert.equal(config.rewrites,undefined);assert.equal(config.routes,undefined); // No SPA rewrite can swallow API requests.
+ assert.deepEqual(config.rewrites,[{source:'/api/:route*',destination:'/api/router?route=:route'}]);assert.equal(config.routes,undefined);
  assert.equal(config.functions['api/**/*.js'].includeFiles,'lib/import-worker.js');
- assert.equal((await files(fileURLToPath(new URL('../api',import.meta.url)))).filter(path=>path.endsWith('.js')).length,33);
+ assert.equal((await files(fileURLToPath(new URL('../api',import.meta.url)))).filter(path=>path.endsWith('.js')).length,5);
 });

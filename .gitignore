@@ -30,3 +30,8 @@ Thumbs.db
 
 # Local Vercel project configuration
 .vercel/
+
+# Full local Lighthouse reports are retained locally; track the compact measured summary.
+artifacts/accessibility/*.html
+artifacts/accessibility/*.json
+!artifacts/accessibility/summary.json

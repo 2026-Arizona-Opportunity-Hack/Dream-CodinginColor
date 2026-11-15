@@ -134,33 +134,51 @@ the backend. New compatibility migrations preserve unresolved historical user
 references without inventing accounts; existing migration checksums are unchanged.
 
 `npm run build` produces only `dist/index.html` and `dist/public/...`.
-`vercel.json` serves that output while preserving native API routes. There are
-still **33** frameworkless API functions: deployment requires a compatible Vercel
-plan, or separately approved and validated consolidation for Hobby. No plan was
-changed, and no deployment was performed.
+The shared API dispatcher reduces the frameworkless Vercel function count from
+33 to **five**, preserving existing URLs and methods. A real local Vercel CLI
+build and compiled-output verification pass; no hosted deployment was performed.
+Node is pinned to 22.x. No application dependency was added.
 
-## Integration and operational limits
+## CIC requirements implementation
 
-See [integration setup, security, demo and limitations](docs/INTEGRATION.md),
-[donor/import API contracts](docs/donor-api.md), and
-[retention API details](docs/retention-api.md). Earlier teammate handoffs describe
-branch-specific contracts; the integration guide takes precedence.
+See the [requirements matrix and four-minute demo](docs/CIC-REQUIREMENTS.md),
+[dashboard API integration](docs/DASHBOARD-API.md), and
+[deployment/cost checklist](docs/DEPLOYMENT-READINESS.md).
 
-Repeated imports with the same source and transaction IDs reuse existing gifts.
-The import preview distinguishes valid rows from existing transactions; its
-`possible_duplicate_gift` flag covers amount/date review for missing IDs only.
+Imports preserve automatic mappings and expose separate names, primary/secondary
+email, phone, company, campaign, board contact and custom fields. Phoenix local
+and Excel dates are supported. Missing currency/status requires explicit review;
+unknown gifts stay outside verified reports. Stable source/transaction IDs reuse
+the original gift, and imported ownership requires review against genuine accounts.
 
-Unverified currency/payment status is stored as unknown and excluded from verified
-radar/reporting. Existing email addresses never imply contact consent. Funder
-outcomes require explicit evidence; none are inferred from gifts. PDF export uses
-browser printing. Board attribution uses current ownership; activity counts with
-program filters exclude unclassified activities. Hosted routing, Neon concurrency,
-the Vercel ingress-IP contract and delivery reconciliation need deployment
-validation. Current role permissions apply across the single nonprofit; they are
-not an assignment-scoped privacy boundary.
+Verified gifts prepare idempotent thank-you drafts. Daily authenticated preparation
+creates separate quarterly donor updates/tasks, board assignment summaries and
+overdue reminders. Production scheduling needs a real preparation account and
+server-only `CRON_SECRET`/`AUTOMATION_USER_ID`; it never sends messages.
 
-All code stays in this repository. Package changes remain coordinated through the
-shared manifest/lockfile. Never commit `.env`, credentials, or real donor data.
+Manual handoff locks an approved, consent-checked revision and records `handed_off`.
+A separate evidence-backed human attestation records a human-reported send. No
+real email/text delivery or provider integration has been performed. Communication
+history and gifts appear on the donor profile. Board accounts are restricted on
+the backend to their assigned donors and related work. Role retirement reassigns
+accounts, revokes sessions and retains audit/history.
+
+Retention reports show the donors behind each category. Cycle-based radar uses
+matched year-to-date windows; configurable inactivity radar remains a separate
+view. Profile-launched funder packets include full multi-year verified giving and
+staff-recorded outcome evidence without inferring impact from donations.
+
+A real Lighthouse 13.0.1 audit measured **100 accessibility on all seven main
+screens**. [Measured summary](artifacts/accessibility/summary.json); full local
+HTML/JSON reports are retained under the same directory. Keyboard/visual checks
+remain separate. Hosted routing, Neon connectivity/concurrency, Vercel ingress
+identity, actual provider samples, budget eligibility and final deployment still
+require authorized external verification. Local Vercel metadata is synthetic;
+replace it through authorized CIC project linking before deployment.
+
+All code stays in this repository. Never commit `.env`, credentials, real donor
+records, or local Vercel project credentials. Historical teammate handoff documents
+may describe older branches; the requirements matrix above describes current work.
 
 ## Links
 

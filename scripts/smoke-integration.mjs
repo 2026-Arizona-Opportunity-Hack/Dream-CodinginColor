@@ -44,15 +44,23 @@ try {
   assert.ok(donor.assigned_board_member_id);
   const list=await api('/donors?search=Synthetic HTTP');assert.equal(list[0].name,'Synthetic HTTP donor');
   await api(`/donors/${donor.id}`,{method:'PATCH',body:{name:'Synthetic HTTP donor',email:'http@example.test',email_consent:true}});
-  await api(`/donors/${donor.id}/donations`,{method:'POST',body:{amount:'123.45',donated_at:'2024-01-01',source:'synthetic-http',currency:'USD',status:'completed'}});
+  await api(`/donors/${donor.id}/donations`,{method:'POST',body:{amount:'123.45',donated_at:'2024-01-01',source:'synthetic-http',currency:'USD',status:'completed',program:'Synthetic Program'}});
   assert.equal((await api(`/donors/${donor.id}/donations`))[0].currency,'USD');
   const members=await api('/board-members');
   await api('/tasks',{method:'POST',body:{title:'Synthetic HTTP follow-up',donor_id:donor.id,assignee_id:members[0].id,due_date:'2026-11-20'}});
   const tasks=await api('/tasks');const task=tasks.find(t=>t.donor_id===donor.id);
   await api(`/tasks/${task.id}`,{method:'PATCH',body:{status:'completed'}});
   assert.equal((await api('/tasks?status=open')).some(t=>t.id===task.id),false);
-  await api('/activities',{method:'POST',body:{donor_id:donor.id,note:'Synthetic HTTP note',type:'call'}});
+  await api('/activities',{method:'POST',body:{donor_id:donor.id,note:'Synthetic HTTP note',type:'call',program:'Synthetic Program'}});
   assert.equal((await api(`/activities?donorId=${donor.id}`))[0].type,'call');
+  const priorReportingKey=process.env.REPORTING_API_KEY;const syntheticReportingKey=randomBytes(32).toString('hex');process.env.REPORTING_API_KEY=syntheticReportingKey;
+  try{
+    const aggregates=await (await fetcher('/api/v1/metrics?from=2024-01-01&to=2024-12-31&program=Synthetic%20Program',{headers:{Authorization:`Bearer ${syntheticReportingKey}`}})).json();
+    assert.equal(aggregates.data.giftTotal,123.45);assert.equal(aggregates.data.activityCount,0);assert.deepEqual(aggregates.data.byProgram,[{name:'Synthetic Program',total:123.45}]);
+    const recent=await (await fetcher(`/api/v1/metrics?from=${new Date().getUTCFullYear()}-01-01&to=${new Date().getUTCFullYear()}-12-31&program=Synthetic%20Program`,{headers:{Authorization:`Bearer ${syntheticReportingKey}`}})).json();
+    assert.equal(recent.data.activityCount,1);assert.doesNotMatch(JSON.stringify(recent),/http@example|Synthetic HTTP donor/);
+  }finally{if(priorReportingKey===undefined)delete process.env.REPORTING_API_KEY;else process.env.REPORTING_API_KEY=priorReportingKey;}
+
   await api('/outreach/drafts',{method:'POST',body:{donor_id:donor.id,type:'thank_you'}});
   const drafts=await api('/outreach/drafts'),draft=drafts.find(d=>d.donorId===donor.id);
   await assert.rejects(api(`/outreach/drafts/${draft.id}/send`,{method:'POST'}),e=>e.status===409);

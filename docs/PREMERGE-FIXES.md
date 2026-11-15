@@ -1,5 +1,7 @@
 # Verified pre-merge fixes
 
+> Current requirements-branch behavior and deployment gates: [CIC-REQUIREMENTS.md](CIC-REQUIREMENTS.md), [DASHBOARD-API.md](DASHBOARD-API.md), and [DEPLOYMENT-READINESS.md](DEPLOYMENT-READINESS.md). Status/counts below may describe earlier teammate branches.
+
 Work remains on `feature/integration`; no push, deployment, production connection
 or real message is part of these changes.
 
