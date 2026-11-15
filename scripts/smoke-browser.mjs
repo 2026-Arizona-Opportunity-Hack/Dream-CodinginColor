@@ -212,6 +212,11 @@ try{
   assert.equal(await evaluate("document.querySelector('#modal-fields').textContent.includes('Scheduled provider sending: off; server opt-in is required')"),true);
   await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.donorEnabled.value='false';f.elements.boardEnabled.value='false';f.elements.reason.value='Synthetic browser administrator keeps all email automation disabled';f.elements.confirmed.checked=true;f.requestSubmit();})()");await wait("!document.querySelector('#modal').open");
   const emailPolicy=(await database.query('SELECT email_policy FROM retention_settings')).rows[0].email_policy;assert.equal(emailPolicy.donorEnabled,false);assert.equal(emailPolicy.boardEnabled,false);
+  await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Send ONE TEST board reminder').click()");await wait("document.querySelector('#modal-title').textContent==='ONE TEST board reminder'");
+  assert.equal(await evaluate("document.querySelector('#modal-form').elements.recipient.value"),'');
+  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.recipient.value='verified-inbox@synthetic-cic-mail.org';f.elements.confirmed.checked=true;f.requestSubmit();})()");await wait("document.querySelector('#modal-error').textContent.includes('EMAIL_DELIVERY_MODE=test')");
+  assert.equal((await database.query("SELECT count(*)::int AS n FROM retention_events WHERE type='email.board-test'")).rows[0].n,0);
+  await evaluate("document.querySelector('#close-modal').click()");
   assert.equal((await evaluate("(async()=>{const {api}=await import('/public/js/api.js');return api('/email/run',{method:'POST',body:{confirmed:true}});})()")).enabled,false);
   const emailConfirmation=new Promise(resolve=>{const listener=event=>{const data=JSON.parse(event.data);if(data.method==='Page.javascriptDialogOpening'){websocket.removeEventListener('message',listener);resolve(data.params);}};websocket.addEventListener('message',listener);});
   await evaluate("setTimeout(()=>[...document.querySelectorAll('main button')].find(b=>b.textContent==='Process approved email queue').click(),0)");assert.equal((await emailConfirmation).type,'confirm');await cdp('Page.handleJavaScriptDialog',{accept:true});

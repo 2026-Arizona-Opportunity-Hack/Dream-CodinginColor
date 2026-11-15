@@ -30,6 +30,19 @@ async function fixture(){
 const enable=(f,donorEnabled,boardEnabled)=>saveEmailSettings(f.store,f.admin,{donorEnabled,boardEnabled,confirmed:true,reason:'Explicit approval of synthetic routing and scheduler tests'},now,env);
 const run=(f,mail,options={})=>processEmailAutomation(f.store,f.admin.id,now,{env,...options,provider:mail.provider});
 
+test('scheduled reminders block a board account outside the test allowlist without redirecting or editing its email',async()=>{
+ const f=await fixture();let sends=0;
+ try{
+  await f.task();await enable(f,false,true);
+  const restricted={...env,EMAIL_TEST_INBOXES:addresses.admin};
+  const provider=createEmailProvider({env:restricted,fetcher:async()=>{sends++;assert.fail('No email can be redirected to the allowlisted admin inbox');}});
+  const result=await processEmailAutomation(f.store,f.admin.id,now,{env:restricted,provider});
+  assert.equal(result.blocked,1);assert.equal(sends,0);
+  assert.equal((await f.db.query('SELECT email FROM users WHERE id=$1',[f.member.id])).rows[0].email,addresses.board);
+  assert.equal((await f.db.query("SELECT count(*)::int AS n FROM audit_events WHERE action='email.dispatch.blocked' AND details->>'code'='EMAIL_TEST_INBOX_REQUIRED'")).rows[0].n,1);
+ }finally{await f.db.close();}
+});
+
 test('thank-you and follow-up recipients come from current donor SQL records, with approval, consent and duplicate checks',async()=>{
  const f=await fixture(),mail=transport();
  try{
