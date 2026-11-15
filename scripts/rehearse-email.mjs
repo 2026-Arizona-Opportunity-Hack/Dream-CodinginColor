@@ -15,6 +15,7 @@ delete process.env.DATABASE_URL;
 for(const key of ['RESEND_API_KEY','EMAIL_FROM','EMAIL_TEST_INBOXES'])process.env[key]=local[key];
 process.env.EMAIL_DELIVERY_MODE='test';
 process.env.CIC_DONOR_AUTOMATION_APPROVED='false';
+process.env.EMAIL_CRON_ENABLED='false';
 process.env.APP_ORIGIN='https://localhost:3000';
 process.env.CRON_SECRET=randomBytes(32).toString('hex');
 const {mentorFixture}=await import('../test-support/mentor-fixture.js');
@@ -90,7 +91,7 @@ try{
     }finally{allowed=null;await policy(false,false);}
    }else if(command==='SEND BOARD'){
     assert.ok(!posts.some(p=>p.kind==='board'),'Board reminder already attempted.');
-    await policy(false,true);allowed='board';
+    await policy(false,true);allowed='board';process.env.EMAIL_CRON_ENABLED='true';
     try{
      assert.equal((await f.call('jobs/prepare')).statusCode,401,'Scheduler must reject unauthenticated callers.');
      // A one-shot timer invokes the actual protected job, independently of UI clicks.
@@ -100,7 +101,7 @@ try{
      const again=await checked('jobs/prepare','GET',{}, {authorization:`Bearer ${process.env.CRON_SECRET}`});
      assert.equal(again.email.queued,0);assert.equal(posts.length,count);
      console.log(JSON.stringify({automaticTimerJob:first,duplicateJob:again,schedulerCredentialEnforced:true,duplicateProtected:true}));
-    }finally{allowed=null;await policy(false,false);}
+    }finally{allowed=null;process.env.EMAIL_CRON_ENABLED='false';await policy(false,false);}
    }else if(command!=='STATUS')throw new Error('Unknown rehearsal command.');
    await report();
   }catch(error){allowed=null;await policy(false,false).catch(()=>{});console.log(JSON.stringify({error:error.code||error.name,message:'Rehearsal stopped this action. Review the sanitized delivery report before retrying.'}));await report();}
