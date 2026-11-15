@@ -1,12 +1,26 @@
+import {assignmentScoped} from '../../lib/donor-access.js';
 import { parseFilters, ReportError } from '../../lib/reporting.js';
 import { authorize, loadGifts, handleError, readOnly } from '../../lib/reporting-store.js';
 export default async function handler(req,res) {
   if(!readOnly(req,res))return;
   try {
     const deps=await authorize(req,res,'reports.read');if(!deps)return;
-    const filters=parseFilters(req.query),donorId=req.query.donorId;
+    const donorId=req.query.donorId;
     if(typeof donorId!=='string'||!donorId||donorId.length>120)throw new ReportError(400,'INVALID_DONOR','A donorId of at most 120 characters is required.');
     const sql=deps.sql;
+    if(assignmentScoped(deps.principal)){
+      const allowed=await sql`SELECT id FROM donors WHERE id::text=${donorId} AND assigned_board_member_id::text=${deps.principal.id}`;
+      if(!allowed.length)throw new ReportError(403,'DONOR_ACCESS_DENIED','This donor is outside your board assignments.');
+    }
+    let query={...req.query};
+    if(query.fullHistory==='true'){
+      const bounds=await sql`SELECT min(day)::text AS start,max(day)::text AS finish FROM (
+        SELECT donated_at AS day FROM reporting_gifts WHERE donor_id::text=${donorId}
+        UNION ALL SELECT period_start FROM reporting_outcomes WHERE donor_id::text=${donorId}
+        UNION ALL SELECT period_end FROM reporting_outcomes WHERE donor_id::text=${donorId}) history`;
+      const today=new Date().toISOString().slice(0,10);query={...query,from:bounds[0]?.start||today,to:bounds[0]?.finish||today};
+    }
+    const filters=parseFilters(query,{singleYear:false});
     const [donors,gifts,outcomes]=await Promise.all([
       sql`SELECT name FROM reporting_donors WHERE id::text = ${donorId}`,
       loadGifts(sql,filters,donorId),

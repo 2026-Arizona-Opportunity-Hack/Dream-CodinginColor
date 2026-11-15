@@ -9,12 +9,10 @@ test('all required protected routes reject unauthenticated requests with a consi
   const routes = { 'auth/logout': ['POST'], 'auth/me': ['GET'], users: ['GET', 'POST', 'PATCH'],
     roles: ['GET', 'POST', 'PATCH'], assignments: ['GET', 'POST'], activities: ['GET', 'POST', 'PATCH'],
     tasks: ['GET', 'POST', 'PATCH'], 'outreach/drafts': ['GET', 'POST', 'PATCH'],
-    'outreach/approve': ['POST'], 'outreach/send': ['POST'], 'outreach/history': ['GET'],
+    'outreach/handoff':['POST'],'outreach/confirm-manual':['POST'],'roles/retire':['POST'],'assignments/balance':['POST'],'outreach/approve': ['POST'], 'outreach/send': ['POST'], 'outreach/history': ['GET'],
     'retention/at-risk': ['GET', 'POST'], 'retention/settings': ['GET', 'PATCH'],
     'tasks/reminders': ['POST'], 'outreach/templates': ['GET', 'POST'] };
   for (const [route, methods] of Object.entries(routes)) {
-    const module = await import(`../api/${route.includes('/') ? route : `${route}/index`}.js`);
-    assert.equal(typeof module.default, 'function');
     for (const method of methods) {
       const res = await request(store, route, method);
       assert.equal(res.statusCode, 401, `${method} ${route}`);

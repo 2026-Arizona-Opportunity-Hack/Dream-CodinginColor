@@ -5,7 +5,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {createIsolatedDatabase} from '../lib/isolated-database.js';
 import {migrate} from '../lib/database-setup.js';
 import {createSqlStore} from '../lib/retention-sql-store.js';
-import {bootstrapAdministrator,saveUser} from '../lib/auth.js';
+import {bootstrapAdministrator,saveUser,hashPassword} from '../lib/auth.js';
 import {resolveLegacyReferences,unresolvedLegacyReferences} from '../lib/legacy-user-references.js';
 import {now,password} from './retention-support.js';
 
@@ -50,7 +50,9 @@ test('adding the compatibility migration to an already-integrated database leave
  const db=await createIsolatedDatabase();
  try{
   await applyOriginals(db,['001_donor_core.sql','002_relationship_security.sql','003_reporting_views.sql']);
-  const store=createSqlStore(db),admin=await bootstrapAdministrator(store,{name:'Synthetic existing operator',email:'existing@example.test',password},now);
+  const admin={id:randomUUID()};
+  await db.query("INSERT INTO roles(id,name) VALUES ('administrator','Administrator')");
+  await db.query("INSERT INTO users(id,name,email,password_hash,role_id) VALUES ($1,'Synthetic existing operator','existing@example.test',$2,'administrator')",[admin.id,await hashPassword(password)]);
   const batch=(await db.query("INSERT INTO import_batches(filename,file_hash,source,importing_user_id) VALUES ('synthetic.csv','test','test',$1) RETURNING id",[admin.id])).rows[0].id;
   const checksums=(await db.query('SELECT name,checksum FROM colorloop_migrations ORDER BY name')).rows;
   await db.transaction(migrate);

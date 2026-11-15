@@ -12,7 +12,7 @@ import { bootstrapAdministrator } from '../lib/auth.js';
 
 const actor = { id: '40000000-0000-4000-8000-000000000001' };
 const person = (name = 'Example Donor', email = 'example@example.invalid') => ({ donor_type: 'person', display_name: name, normalized_email: email });
-const upload = (csv) => ({ filename: 'donors.csv', source: 'synthetic-test', content_base64: Buffer.from(csv).toString('base64') });
+const upload = (csv) => ({ filename: 'donors.csv', source: 'synthetic-test', payment_review:{keep_unknown:true}, content_base64: Buffer.from(csv).toString('base64') });
 const gift = (id, transaction = 'gift-1') => ({ donor_id: id, amount: '12.50', donation_date: '2026-01-15', source: 'synthetic-test', external_transaction_id: transaction });
 
 test('database services against isolated PostgreSQL engine', async (t) => {

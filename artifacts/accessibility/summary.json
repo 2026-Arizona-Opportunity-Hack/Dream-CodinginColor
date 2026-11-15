@@ -1,0 +1,42 @@
+{
+  "syntheticOnly": true,
+  "measuredAt": "2026-11-15T01:06:07.814Z",
+  "lighthouseVersion": "13.0.1",
+  "results": [
+    {
+      "screen": "dashboard",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "donors",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "imports",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "tasks",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "outreach",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "reports",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "settings",
+      "score": 100,
+      "failures": []
+    }
+  ]
+}

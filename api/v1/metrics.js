@@ -17,7 +17,7 @@ export function createHandler({ connect=database, giftsFor=loadGifts, activities
     const [gifts,count]=await Promise.all([giftsFor(sql,filters),activitiesFor(sql,filters)]);
     const report=calculateRetention(gifts,filters,count);
     // Explicit allowlist: never serialize gift rows, names, emails or donor identifiers.
-    return res.status(200).json({data:{from:filters.from,to:filters.to,program:filters.program,boardMember:filters.boardMember,currency:'USD',donorTotal:report.donorTotal,giftTotal:report.giftTotal,giftCount:report.giftCount,activityCount:report.activityCount}});
+    return res.status(200).json({data:{from:filters.from,to:filters.to,program:filters.program,boardMember:filters.boardMember,currency:'USD',donorTotal:report.donorTotal,giftTotal:report.giftTotal,giftCount:report.giftCount,activityCount:report.activityCount,byProgram:report.byProgram,byBoardMember:report.byBoardMember,monthly:report.monthly}});
   }catch(error){return handleError(res,error);}
 }
 

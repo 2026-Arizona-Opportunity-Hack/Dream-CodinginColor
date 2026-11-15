@@ -7,17 +7,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import 'dotenv/config';
 import { contextKey } from '../lib/permissions.js';
 import { createHandler } from '../lib/retention-api.js';
-import { handlerFor } from '../lib/donor-routes.js';
+import { createRouter } from '../lib/api-router.js';
 
 export async function startServer({ database, store, port=Number(process.env.PORT||3000), tls, origin,
   staticRoot=fileURLToPath(new URL('../',import.meta.url)) }={}) {
   const root=resolve(staticRoot);
   const scheme=tls?'https':'http';origin??=process.env.APP_ORIGIN||`${scheme}://localhost:${port}`;
-  const dataRoutes=new Map([['/api/donors','donors'],['/api/donations','donations'],['/api/imports/preview','preview'],['/api/imports/confirm','confirm'],['/api/merges/candidates','candidates'],['/api/merges','merges'],['/api/custom-fields','fields'],['/api/campaigns','campaigns']]);
-  const workflow=new Set(['auth/login','auth/logout','auth/me','users','roles','assignments','assignments/members','activities','tasks','tasks/reminders','outreach/templates','outreach/drafts','outreach/approve','outreach/send','outreach/history','retention/at-risk','retention/settings']);
-  const sql=database?async(strings,...params)=>{
-    const statement=strings.reduce((value,part,i)=>value+(i?`$${i}`:'')+part,'');return (await database.query(statement,params)).rows;
-  }:undefined;
+  const router=createRouter({database,store});
   const listener=async(req,res)=>{
     res.status=code=>{res.statusCode=code;return res;};res.json=value=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify(value));};
     res.setHeader('X-Content-Type-Options','nosniff');
@@ -30,19 +26,7 @@ export async function startServer({ database, store, port=Number(process.env.POR
           for await(const chunk of req){size+=chunk.length;if(size>1500000)return res.status(413).json({error:{code:'REQUEST_TOO_LARGE',message:'Request exceeds 1.5 MB.'}});chunks.push(chunk);}
           req.body=Buffer.concat(chunks).toString()||'{}';
         }
-        req[contextKey]={store,origin,sql};
-        const name=url.pathname.slice(5);
-        if(workflow.has(name))return createHandler(name,{store,origin})(req,res);
-        let route=dataRoutes.get(url.pathname);
-        const donor=/^\/api\/donors\/([^/]+)(\/donations)?$/.exec(url.pathname);
-        if(donor){req.query.id=decodeURIComponent(donor[1]);route=donor[2]?'history':'donor';}
-        const config=/^\/api\/(custom-fields|campaigns)\/([^/]+)$/.exec(url.pathname);
-        if(config){req.query.id=decodeURIComponent(config[2]);route=config[1]==='campaigns'?'campaign':'field';}
-        if(route)return handlerFor(route,database?{db:database}:undefined)(req,res);
-        if(['reports/retention','reports/funder','v1/metrics','health'].includes(name)) {
-          const module=await import(`../api/${name}.js`);return module.default(req,res);
-        }
-        return res.status(404).json({error:{code:'NOT_FOUND',message:'Endpoint not found.'}});
+        req[contextKey]={store,origin};req.query.route=url.pathname.slice(5);return router(req,res);
       }
       if(!['GET','HEAD'].includes(req.method)){res.setHeader('Allow','GET, HEAD');return res.status(405).end();}
       const decoded=decodeURIComponent(url.pathname==='/'?'/index.html':url.pathname);
