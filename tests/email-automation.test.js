@@ -144,6 +144,7 @@ test('provider bounce records suppression and prevents later approved mail to th
  }finally{await f.db.close();}
 });
 test('email policy/run routes require genuine MFA, CSRF and administrator authority; configuration never exposes secrets',async()=>{
+ const previousMode=process.env.EMAIL_DELIVERY_MODE;process.env.EMAIL_DELIVERY_MODE='disabled';
  const f=await mentorFixture();
  try{
   assert.equal((await f.call('email/settings')).statusCode,401);const board=await f.board('restricted-email');const boardAuth=await f.session(board);assert.equal((await f.call('email/settings','GET',{},boardAuth)).statusCode,403);
@@ -152,5 +153,5 @@ test('email policy/run routes require genuine MFA, CSRF and administrator author
   assert.equal((await f.call('email/run','POST',{},auth)).statusCode,400);assert.equal((await f.call('email/run','POST',{confirmed:true},auth)).body.data.enabled,false);
   const settings=await readEmailSettings(f.store,env);assert.doesNotMatch(JSON.stringify(settings),/synthetic-transport-credential|verified-inbox@/);
   const login=await f.call('auth/login','POST',{email:f.admin.email,password});const partial={token:login.headers['Set-Cookie'].split(';')[0].split('=')[1],csrfToken:login.body.data.csrfToken};assert.equal((await f.call('email/settings','GET',{},partial)).statusCode,403);
- }finally{await f.db.close();}
+ }finally{await f.db.close();if(previousMode===undefined)delete process.env.EMAIL_DELIVERY_MODE;else process.env.EMAIL_DELIVERY_MODE=previousMode;}
 });

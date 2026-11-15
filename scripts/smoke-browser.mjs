@@ -285,6 +285,27 @@ try{
   await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.reference.value='Synthetic human send evidence, no external provider';f.requestSubmit();})()");await wait("!document.querySelector('#modal').open");
   assert.equal((await database.query('SELECT status FROM outreach_messages WHERE id=$1',[draftId])).rows[0].status,'sent');
   assert.equal(apiRequests.includes('/api/outreach/send'),false);
+  // Exercise the real browser button with an injected Resend response, never real delivery.
+  const directInbox=process.env.EMAIL_TEST_INBOXES?.split(',')[0]?.trim()||'verified-inbox@synthetic-cic-mail.org';
+  const savedEnv=Object.fromEntries(['EMAIL_DELIVERY_MODE','RESEND_API_KEY','EMAIL_FROM','EMAIL_TEST_INBOXES'].map(k=>[k,process.env[k]])),nativeFetch=globalThis.fetch;
+  let directPosts=0;
+  try{
+   Object.assign(process.env,{EMAIL_DELIVERY_MODE:'test',RESEND_API_KEY:'synthetic-chrome-key',EMAIL_FROM:'sender@synthetic-cic-mail.org',EMAIL_TEST_INBOXES:directInbox});
+   globalThis.fetch=async(url,options)=>{if(new URL(url).hostname==='api.resend.com'){if(options.method==='POST'){directPosts++;assert.deepEqual(JSON.parse(options.body).to,[directInbox]);return Response.json({id:'synthetic-chrome-direct'});}return Response.json({id:'synthetic-chrome-direct',last_event:'delivered'});}return nativeFetch(url,options);};
+   await database.query('UPDATE donors SET normalized_email=$2 WHERE id=$1',[donorId,directInbox]);
+   const directId=await evaluate(`(async()=>{const {api}=await import('/public/js/api.js');const d=await api('/outreach/drafts',{method:'POST',body:{donor_id:${JSON.stringify(donorId)},templateId:'follow-up'}});location.hash='outreach?view=drafts&draft='+d.id;return d.id;})()`);
+   await wait("document.querySelector('#review-outreach')&&[...document.querySelectorAll('#draft-actions button')].some(b=>b.textContent==='Approve current draft'&&!b.hidden)");
+   await evaluate("[...document.querySelectorAll('#draft-actions button')].find(b=>b.textContent==='Approve current draft').click()");await wait("[...document.querySelectorAll('#draft-actions button')].some(b=>b.textContent==='Send approved email')");
+   assert.equal(await evaluate("[...document.querySelectorAll('#draft-actions button')].some(b=>b.textContent==='Approve current draft'&&!b.hidden)"),false);
+   const confirmSend=new Promise(resolve=>{const listen=e=>{const d=JSON.parse(e.data);if(d.method==='Page.javascriptDialogOpening'){websocket.removeEventListener('message',listen);resolve();}};websocket.addEventListener('message',listen);});
+   await evaluate("setTimeout(()=>[...document.querySelectorAll('#draft-actions button')].find(b=>b.textContent==='Send approved email').click(),0)");await confirmSend;await cdp('Page.handleJavaScriptDialog',{accept:true});
+   await wait("[...document.querySelectorAll('#draft-actions button')].some(b=>b.textContent==='Check delivery status')");
+   assert.equal((await database.query('SELECT status FROM outreach_messages WHERE id=$1',[directId])).rows[0].status,'queued');assert.equal(directPosts,1);
+   await evaluate("[...document.querySelectorAll('#draft-actions button')].find(b=>b.textContent==='Check delivery status').click()");await wait("document.querySelector('#draft-review').textContent.includes('Provider-confirmed delivered')");
+   await evaluate(`(async()=>{const {api}=await import('/public/js/api.js');return api('/outreach/drafts/${directId}/send',{method:'POST'});})()`);assert.equal(directPosts,1);
+   await evaluate("location.hash='outreach?view=history'");await wait("document.querySelector('#outreach-view')?.textContent.includes('synthetic-chrome-direct')");
+   assert.equal(await evaluate(`document.querySelector('#outreach-view').textContent.includes(${JSON.stringify(directInbox)})`),true);
+  }finally{globalThis.fetch=nativeFetch;for(const [key,value]of Object.entries(savedEnv))if(value===undefined)delete process.env[key];else process.env[key]=value;await database.query('UPDATE donors SET normalized_email=$2 WHERE id=$1',[donorId,'demo-alex@example.test']);}
   await evaluate("location.hash='imports'");await wait("document.querySelector('[data-batch]')");
   await evaluate("document.querySelector('[data-batch]').click()");await wait("document.querySelector('#import-history-detail table')");
  await database.query('UPDATE users SET board_member=false'); // Disposable fixture: mirror the real empty board roster.
@@ -311,7 +332,7 @@ try{
  await evaluate("document.querySelector('#close-modal').click()");
  await evaluate("location.hash='settings'");await wait("document.querySelector('main').textContent.includes('No board members have been added.')");
  await evaluate("location.hash='outreach'");await wait("document.querySelector('[data-draft]')");
- assert.equal(await evaluate("[...document.querySelectorAll('[data-draft]')].filter(b=>b.closest('tr').textContent.includes('demo-alex@example.test')).length"),4);
+ assert.equal(await evaluate("[...document.querySelectorAll('[data-draft]')].filter(b=>b.closest('tr').textContent.includes('demo-alex@example.test')).length"),5); // Includes the direct-send fixture.
  assert.match(await evaluate("[...document.querySelectorAll('[data-draft]')].find(b=>b.closest('tr').textContent.includes('demo-alex@example.test')).closest('table').textContent"),/\$1,000\.00/);
 
  await evaluate("location.hash='reports'");await wait("[...document.querySelectorAll('main button')].some(b=>b.textContent==='Funder gift history and outcomes')");

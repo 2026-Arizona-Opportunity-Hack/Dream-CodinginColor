@@ -74,7 +74,7 @@ test('SQL claims, expiry, permissions, balanced assignment and immutable history
     const input={id:draft.id,revision:draft.revision};
     await request(store,'outreach/approve','POST',input,session);
     let delivered=0;const provider={sendEmail:async()=>{delivered++;return {status:'sent',id:'synthetic-receipt'};}};
-    const results=await Promise.all([store,other,store,other].map(s=>request(s,'outreach/send','POST',input,session,{options:{provider}})));
+    const results=await Promise.all([store,other,store,other].map(s=>request(s,'outreach/send','POST',input,session,{options:{provider,env:{EMAIL_DELIVERY_MODE:'test'}}})));
     assert.ok(results.some(r=>r.statusCode===200));assert.equal(delivered,1);
     assert.equal((await db.query("SELECT count(*)::int AS n FROM outreach_delivery_history WHERE status='sent'")).rows[0].n,1);
     await assert.rejects(db.transaction(q=>q('DELETE FROM audit_events')),/append-only/);
