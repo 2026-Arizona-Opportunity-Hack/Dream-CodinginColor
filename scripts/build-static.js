@@ -2,7 +2,7 @@ import {readFile,writeFile,mkdir,lstat,realpath,rm} from 'node:fs/promises';
 import {dirname,resolve,relative,basename} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
-export const STATIC_FILES=Object.freeze(['index.html','public/css/app.css','public/js/app.js','public/js/api.js','public/js/account-forms.js','public/js/imports.js','public/js/auth-ui.js','public/js/ui.js','public/js/import-review.js','public/js/donor-view.js','public/js/donor-workflows.js','public/js/donor-profile.js','public/js/impact-preview.js','public/js/mentor-screens.js','public/js/duplicate-review.js','public/js/outreach-ui.js','public/js/followups-ui.js','public/js/mentor-data.js']);
+export const STATIC_FILES=Object.freeze(['index.html','public/css/app.css','public/js/app.js','public/js/api.js','public/js/account-forms.js','public/js/imports.js','public/js/auth-ui.js','public/js/deployment-mode.js','public/js/ui.js','public/js/import-review.js','public/js/donor-view.js','public/js/donor-workflows.js','public/js/donor-profile.js','public/js/impact-preview.js','public/js/mentor-screens.js','public/js/duplicate-review.js','public/js/outreach-ui.js','public/js/followups-ui.js','public/js/mentor-data.js']);
 const credentialPattern=/(?:^|[^A-Za-z0-9])(?:sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{30,})|-----BEGIN [A-Z ]*PRIVATE KEY-----/m;
 export async function buildStatic(output=resolve(root,'dist')) {
  output=resolve(output);

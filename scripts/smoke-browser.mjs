@@ -316,7 +316,7 @@ try{
    confirmSend=confirmation();await evaluate("setTimeout(()=>[...document.querySelectorAll('#draft-actions button')].find(b=>b.textContent==='Approve & Send Email').click(),0)");await confirmSend;await cdp('Page.handleJavaScriptDialog',{accept:true});
    await wait("[...document.querySelectorAll('#draft-actions button')].some(b=>b.textContent==='Check delivery status')");
    assert.equal((await database.query('SELECT status FROM outreach_messages WHERE id=$1',[directId])).rows[0].status,'queued');assert.equal(directPosts,1);
-   await evaluate("[...document.querySelectorAll('#draft-actions button')].find(b=>b.textContent==='Check delivery status').click()");await wait("document.querySelector('#draft-review').textContent.includes('Provider-confirmed delivered')");
+   await evaluate("[...document.querySelectorAll('#draft-actions button')].find(b=>b.textContent==='Check delivery status').click()");await wait("document.querySelector('#draft-review')?.textContent.includes('Provider-confirmed delivered')");
    await evaluate(`(async()=>{const {api}=await import('/public/js/api.js');return api('/outreach/drafts/${directId}/send',{method:'POST'});})()`);assert.equal(directPosts,1);
    await evaluate("location.hash='outreach?view=history'");await wait("document.querySelector('#outreach-view')?.textContent.includes('synthetic-chrome-direct')");
    assert.equal(await evaluate(`document.querySelector('#outreach-view').textContent.includes(${JSON.stringify(directInbox)})`),true);

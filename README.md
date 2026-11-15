@@ -160,6 +160,8 @@ After the approved organization-reimport fix, the full suite passed **202 tests,
 0 failed, 1 skipped**, including two new classification and retry regressions.
 The internal impact-preview sprint passed **207 tests, 0 failed, 1 skipped**,
 preserving that baseline and adding five focused presentation/authorization tests.
+Judge deployment safeguards bring the full suite to **211 passed, 0 failed,
+1 skipped**. Judge-only and normal-mode Chrome checks pass with isolated SQL.
 
 Local evidence includes 100 Lighthouse accessibility on 19 authenticated views,
 75 responsive/keyboard views, zero vulnerabilities in both dependency audits, and
@@ -177,8 +179,8 @@ The rehearsal starts empty isolated SQL, uses Chrome's actual file upload, and c
 import, merge, exact-file reimport, approval-only outreach, tasks and Lapsed Donor
 Radar. Results and screenshots are written under the OS temporary directory.
 See [latest rehearsal results and known blockers](docs/FINAL-DEMO-REHEARSAL.md).
-`npm run build` outputs only `dist/index.html` and `dist/public/...` (18 allowlisted
-assets including the internal impact preview).
+`npm run build` outputs only `dist/index.html` and `dist/public/...` (19 allowlisted
+assets including the internal impact preview and deployment label).
 A stale root `.vercel/output` must not be deployed with `--prebuilt`; any approved
 release needs a fresh linked-project build. Isolated packaging fixtures are not deploy targets.
 
@@ -201,10 +203,13 @@ Team Dream. The following roles were supplied by the team representative and rem
 - The timeboxed enhancement adds **Donors → Giving → Preview donor impact
   (internal)** for users with reporting permission. It reuses authorized gift and
   verified-outcome data, with no inferred impact or public donor access. Donor login,
-  secure account linking and publication remain unfinished. Same-login Demo Workspace,
-  hosted judge access and signup email verification are also deferred; existing MFA
-  and CIC account approval remain unchanged. See the [safe sprint handoff](docs/SPRINT-HANDOFF.md)
-  for the local-only judge fallback and validation.
+  secure account linking, publication, same-login Demo Workspace and signup email
+  verification remain unfinished. Existing MFA and CIC account approval remain unchanged.
+- A **separate Judge Demo release is prepared and tested, not deployed**. It uses
+  an independently provisioned synthetic database, private preapproved accounts,
+  mandatory MFA, restricted roles, and hard-blocked email/jobs. See the
+  [private setup and exact deployment commands](docs/JUDGE-DEMO-DEPLOYMENT.md).
+  Auth0 was evaluated and deferred; no untested authentication migration is enabled.
 - Full Zeffy/Benevity provider export compatibility is not certified.
 - Production email transport is not configured in the inspected Vercel variable
   listing; authenticated hosted delivery has not been verified.

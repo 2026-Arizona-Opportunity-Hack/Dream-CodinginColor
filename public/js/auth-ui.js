@@ -1,6 +1,8 @@
+import {JUDGE_DEMO} from './deployment-mode.js';
 // The server decides every authentication transition. No credentials or factors use browser storage.
 export function initializeAuthUI({api,esc,onAuthenticated,onSignedOut,onDialogOpen,onNotice=()=>{}}){
  const shell=document.querySelector('#app-shell'),screen=document.querySelector('#sign-in'),content=document.querySelector('#auth-content'),tabs=document.querySelector('#auth-tabs');
+ if(JUDGE_DEMO){const note=document.createElement('p');note.className='panel';note.setAttribute('role','note');note.textContent='Judge Demo: synthetic records only. Email sending and background jobs are disabled. Use your privately issued account and authenticator.';shell.before(note);document.querySelector('#auth-sign-up').hidden=true;}
  const modal=document.querySelector('#modal'),modalForm=document.querySelector('#modal-form'),trigger=document.querySelector('#session'),dropdown=document.querySelector('#account-dropdown'),menu=document.querySelector('#account-menu');
  let account=null,version=0;
  const passwordField=(name,label,policy=false)=>`<label for="auth-${name}">${esc(label)}</label><div class="password-control"><input id="auth-${name}" name="${name}" data-password type="password" autocomplete="${name==='newPassword'?'new-password':'current-password'}" maxlength="128" ${policy?'minlength="10"':''} required><button type="button" data-toggle-password="auth-${name}" aria-pressed="false">Show password</button></div>${policy?'<p class="muted">Use 10–128 characters, including uppercase, lowercase, a number and a special character.</p>':''}`;
