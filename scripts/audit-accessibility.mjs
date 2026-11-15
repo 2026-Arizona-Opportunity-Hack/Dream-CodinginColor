@@ -30,7 +30,7 @@ try{
  const {targetId}=await send('Target.createTarget',{url:base}),{sessionId}=await send('Target.attachToTarget',{targetId,flatten:true});
  await send('Page.enable',{},sessionId);await send('Runtime.enable',{},sessionId);
  const evaluate=async expression=>{const result=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true},sessionId);if(result.exceptionDetails)throw new Error(result.exceptionDetails.text);return result.result.value;};
- await evaluate("new Promise(resolve=>{const poll=()=>document.querySelector('#session')?resolve():setTimeout(poll,50);poll();})");
+ await evaluate("new Promise(resolve=>{const poll=()=>document.querySelector('#sign-in-form')&&!document.querySelector('#sign-in').hidden?resolve():setTimeout(poll,50);poll();})");
  await evaluate(`(async()=>{const {api}=await import('/public/js/api.js');await api('/auth/login',{method:'POST',body:{email:'admin@example.test',password:${JSON.stringify(password)}}});await api('/auth/mfa/enroll',{method:'POST',body:{currentPassword:${JSON.stringify(password)}}});})()`);
  const user=await store.read(s=>s.users.find(u=>u.email==='admin@example.test'));
  const code=authenticator(decryptTotp(user.totpPendingCiphertext,user.id),user.email).generate();

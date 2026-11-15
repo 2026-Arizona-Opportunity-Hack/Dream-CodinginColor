@@ -141,3 +141,26 @@ main>button,#results>button{margin:8px 8px 8px 0}
 #security-actions>button,#admin-account-actions>button{display:block;width:100%;margin-top:12px}
 #auth-content>button{margin-top:12px;width:100%}
 .sign-in-card:has(.enrollment-qr){margin-block:20px}
+
+/* Keep complete records and actions visible without horizontal scrolling. */
+table{min-width:0;table-layout:fixed}
+td,th{vertical-align:top}
+td button{max-width:100%;white-space:normal}
+dialog{overflow:auto}
+fieldset{min-width:0;border:1px solid var(--line);border-radius:6px;padding:14px;margin:16px 0}
+legend{color:var(--dark);font-weight:700;padding:0 6px}
+details{margin:12px 0}
+summary{cursor:pointer;color:var(--dark);padding:8px 0;min-height:44px}
+#notice{position:static;margin:16px 40px;max-width:none;display:flex;align-items:center;justify-content:space-between;gap:16px}
+#notice:empty{margin:0;padding:0}
+#notice button{background:var(--white);flex-shrink:0}
+@media screen and (max-width:1000px){
+ .table-wrap{overflow:visible;margin:0}
+ table,tbody,tr,td{display:block;width:100%}
+ thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ tbody tr{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:8px}
+ td{display:grid;grid-template-columns:minmax(90px,34%) minmax(0,1fr);gap:12px;padding:10px;border:0}
+ td::before{content:attr(data-label);font-weight:700;color:var(--dark)}
+ td button{justify-self:start}
+}
+@media(max-width:650px){#notice{margin:12px 16px}#notice:not(:empty){padding:12px}}

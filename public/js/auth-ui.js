@@ -1,5 +1,5 @@
 // The server decides every authentication transition. No credentials or factors use browser storage.
-export function initializeAuthUI({api,esc,onAuthenticated,onSignedOut,onDialogOpen}){
+export function initializeAuthUI({api,esc,onAuthenticated,onSignedOut,onDialogOpen,onNotice=()=>{}}){
  const shell=document.querySelector('#app-shell'),screen=document.querySelector('#sign-in'),content=document.querySelector('#auth-content'),tabs=document.querySelector('#auth-tabs');
  const modal=document.querySelector('#modal'),modalForm=document.querySelector('#modal-form'),trigger=document.querySelector('#session'),dropdown=document.querySelector('#account-dropdown'),menu=document.querySelector('#account-menu');
  let account=null,version=0;
@@ -62,7 +62,7 @@ export function initializeAuthUI({api,esc,onAuthenticated,onSignedOut,onDialogOp
   modalForm.querySelector('[type=submit]').textContent=button;modalForm.onsubmit=event=>{event.preventDefault();submit(modalForm,save||(async()=>modal.close()));};
   if(!modal.open)modal.showModal();modal.querySelector('input,select,textarea')?.focus();
  }
- function notify(message){document.querySelector('#notice').textContent=message;}
+ function notify(message){onNotice(message);}
  async function profile(){
   const user=await api('/account/profile');if(!account)return;
   dialog('My Profile',`<label>Full name<input name="name" autocomplete="name" maxlength="120" value="${esc(user.name)}" required></label><dl class="profile-details"><dt>Email</dt><dd>${esc(user.email)}</dd><dt>Role</dt><dd>${esc(user.roleName||user.roleId)}</dd><dt>Status</dt><dd>${user.active?'Active':'Inactive'}</dd></dl><p>Email and role changes require an administrator.</p>`,async values=>{await api('/account/profile',{method:'PATCH',body:values});await refresh();modal.close();notify('Profile updated.');});

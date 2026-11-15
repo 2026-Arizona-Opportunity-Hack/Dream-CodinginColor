@@ -1,3 +1,4 @@
+import {campaignGroups,reviewedImportRows,importSummary} from './import-review.js';
 // Mapping stays editable; request-level source is the stable transaction namespace.
 export async function renderImports(root,{api,esc,canCreateCampaign=false}) {
   root.innerHTML+='<section class="panel"><h2>Import giving history</h2><p>Upload CSV or XLSX. Review mapped fields, payment information and donor ownership before confirming. Phoenix local dates are supported.</p><form id="upload"><label>Source<input name="source" list="sources" value="generic" required></label><datalist id="sources"><option value="generic"><option value="zeffy"><option value="benevity"></datalist><label>Spreadsheet<input type="file" name="file" accept=".csv,.xlsx" required></label><button class="primary">Upload and inspect</button></form><div id="preview" aria-live="polite"></div></section>';
@@ -21,31 +22,24 @@ export async function renderImports(root,{api,esc,canCreateCampaign=false}) {
           const mapping=Object.fromEntries(targets.filter(k=>values[k]).map(k=>[k,values[k]]));
           const payment_review={...(values.review_currency?{currency:values.review_currency}:{}),...(values.review_status?{status:values.review_status}:{}),keep_unknown:values.keep_unknown==='on'};
           const preview=await api('/imports/preview',{method:'POST',body:{importId:upload.importId,source:root.querySelector('#upload').elements.source.value,mapping,payment_review}});
-          output.innerHTML=`<h3>Review before confirming</h3><p>${esc(preview.validRows)} valid rows · ${esc(preview.existingTransactions)} existing transactions · ${esc(preview.errors.length)} errors</p><pre>${esc(JSON.stringify(preview.rows,null,2))}</pre>`;
+          const summary=importSummary(preview),groups=campaignGroups(preview.rows);
+          output.innerHTML=`<h3>Review before confirming</h3><p class="import-summary">${summary.valid} valid rows · ${summary.existing} existing transactions · ${summary.possibleDuplicates} possible duplicate gifts · ${summary.donors} donor identities · ${summary.donations} donation rows · ${summary.campaigns} campaign names · ${preview.errors.length} errors</p><p>Donor identities are a preview; the server confirms final matches. Existing transactions retain their original gifts.</p><details><summary>Row details and validation</summary><pre>${esc(JSON.stringify(preview.rows,null,2))}</pre></details>`;
           if(preview.errors.length)return;
           const decisions=document.createElement('form');
+          const campaignControls=(prefix,name,matched,override=false)=>choices(prefix,override?'Campaign exception':`Campaign decision for ${name}`,[["",override?'Use group decision':'Choose campaign decision'],...(matched?[['keep','Keep matched campaign']]:[]),...campaigns.filter(c=>!c.archived).map(c=>[`map:${c.id}`,`Map to ${c.name}`]),...(canCreateCampaign?[['create','Create campaign with explicit approval']]:[]),['none','Leave gift without a campaign']])+`<label>New campaign name<input name="${prefix}:name" value="${esc(name)}" maxlength="200"></label><label><span><input type="checkbox" name="${prefix}:approved"> I approve creating this campaign if it does not exist</span></label>`;
+          for(const group of groups){decisions.insertAdjacentHTML('beforeend',`<fieldset data-campaign-group><legend>${esc(group.name)} · ${group.rows.length} donation rows</legend>${campaignControls(`campaign:${group.index}`,group.name,group.matched)}<details><summary>Row-specific exceptions</summary>${group.rows.map(row=>`<fieldset><legend>Row ${row.row_number}</legend>${campaignControls(`campaign-row:${row.row_number}`,row.campaign_review.name,row.campaign_review.status==='matched',true)}</fieldset>`).join('')}</details></fieldset>`);if(group.matched)decisions.elements.namedItem(`campaign:${group.index}`).value='keep';}
           for(const row of preview.rows){
             if(row.matching?.candidates.length)decisions.insertAdjacentHTML('beforeend',choices(`donor:${row.row_number}`,`Row ${row.row_number}: donor identity`,[['','Use unambiguous match'],...row.matching.candidates.map(id=>[id,id]),['new','Create a distinct donor']]));
             if(row.possible_duplicate_gift)decisions.insertAdjacentHTML('beforeend',`<label><span><input type="checkbox" name="duplicate:${row.row_number}"> Row ${row.row_number}: I verified this amount/date match is a distinct gift</span></label>`);
-            if(row.campaign_review){const review=row.campaign_review;decisions.insertAdjacentHTML('beforeend',choices(`campaign:${row.row_number}`,`Row ${row.row_number}: campaign ${review.name} (${review.status})`,[["",review.status==='matched'?'Keep matched campaign':'Choose campaign decision'],...campaigns.map(c=>[`map:${c.id}`,`Map to ${c.name}`]),...(canCreateCampaign?[['create','Create a campaign with explicit approval']]:[]),['none','Leave gift without a campaign']])+`<label>Row ${row.row_number}: approved new campaign name<input name="campaign-name:${row.row_number}" value="${esc(review.name)}" maxlength="200"></label><label><span><input type="checkbox" name="campaign-approval:${row.row_number}"> I approve creating this campaign if it does not exist</span></label>`);}
             if(row.data.board_contact)decisions.insertAdjacentHTML('beforeend',choices(`owner:${row.row_number}`,`Row ${row.row_number}: review imported contact ${row.data.board_contact}`,[['','Choose ownership decision'],...(row.board_candidates||[]).map(u=>[u.id,`${u.name} (${u.email})`]),['balanced','Keep existing owner / use balanced assignment']]));
           }
           decisions.insertAdjacentHTML('beforeend','<button class="primary">Confirm reviewed import</button>');output.append(decisions);
           decisions.onsubmit=async event=>{
             event.preventDefault();const button=decisions.querySelector('button');button.disabled=true;
             try{
-              const chosen=Object.fromEntries(new FormData(decisions)),review={};
-              for(const row of preview.rows){
-                const donor=chosen[`donor:${row.row_number}`],owner=chosen[`owner:${row.row_number}`];
-                if(row.data.board_contact&&!owner)throw new Error(`Review ownership for row ${row.row_number}.`);
-                const campaignChoice=chosen[`campaign:${row.row_number}`];let campaign;
-                if(row.campaign_review&&row.campaign_review.status!=='matched'&&!campaignChoice)throw new Error(`Review the campaign for row ${row.row_number}.`);
-                if(campaignChoice==='create'){if(!chosen[`campaign-approval:${row.row_number}`])throw new Error(`Explicitly approve campaign creation for row ${row.row_number}.`);campaign={action:'create',name:chosen[`campaign-name:${row.row_number}`],approved:true};}
-                else if(campaignChoice==='none')campaign={action:'none'};else if(campaignChoice?.startsWith('map:'))campaign={action:'map',id:campaignChoice.slice(4)};
-                review[row.row_number]={...(campaign?{campaign}:{}),...(donor?{donor_id:donor}:{}),...(chosen[`duplicate:${row.row_number}`]?{allow_possible_duplicate:true}:{}),...(owner==='balanced'?{use_balanced_assignment:true}:owner?{assignee_id:owner}:{})};
-              }
+              const review=reviewedImportRows(preview,Object.fromEntries(new FormData(decisions)),groups);
               const result=await api('/imports/confirm',{method:'POST',body:{importId:preview.importId,decisions:review}});
-              output.innerHTML=`<h3>Import confirmed</h3><p>Existing transaction IDs reuse their original gifts. New verified gifts prepare thank-you drafts; no messages are sent.</p><pre>${esc(JSON.stringify(result.rows,null,2))}</pre>`;
+              output.innerHTML=`<h3>Import confirmed</h3><p>${new Set(result.rows.map(r=>r.donor_id)).size} donors · ${result.rows.filter(r=>r.result==='imported'&&r.donation_id).length} donations added · ${result.rows.filter(r=>r.result==='duplicate').length} existing gifts reused.</p><p>Existing transaction IDs reuse their original gifts. New verified gifts prepare thank-you drafts; no messages are sent.</p><pre>${esc(JSON.stringify(result.rows,null,2))}</pre>`;
             }catch(error){output.querySelector('[role=alert]')?.remove();const p=document.createElement('p');p.setAttribute('role','alert');p.textContent=error.message;output.append(p);button.disabled=false;}
           };
         }catch(error){output.textContent=error.message;}

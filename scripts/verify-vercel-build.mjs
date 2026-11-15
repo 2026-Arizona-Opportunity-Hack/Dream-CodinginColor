@@ -26,7 +26,7 @@ const {enrollment,decryptTotp,authenticator}=await import(pathToFileURL(join(roo
 const user={id:'synthetic-packaged-user',email:'packaged@example.test'},setup=await enrollment(user,new Date());
 assert.ok(setup.qr.startsWith('data:image/png;base64,'));
 assert.match(authenticator(decryptTotp(setup.ciphertext,user.id),user.email).generate(),/^\d{6}$/);
-for(const path of ['index.html','public/js/app.js','public/js/api.js','public/js/imports.js','public/js/account-forms.js','public/js/auth-ui.js','public/css/app.css'])await access(join(root,'static',path));
+for(const path of ['index.html','public/js/app.js','public/js/api.js','public/js/imports.js','public/js/account-forms.js','public/js/auth-ui.js','public/js/ui.js','public/js/import-review.js','public/css/app.css'])await access(join(root,'static',path));
 const publicFiles=await walk(join(root,'static'));assert.ok(publicFiles.every(p=>p==='index.html'||p.startsWith('public/')));
 assert.ok(publicFiles.every(p=>!/(?:^|\/)\.env|\.sql$|(?:^|\/)(?:lib|db|node_modules)\//.test(p)));
 console.log(JSON.stringify({actualVercelBuild:true,functions:configs.length,rewrittenPathsVerified:paths.length,packagedXlsxWorkerExecuted:true,packagedTotpAndQrExecuted:true,privateStaticAssets:false}));

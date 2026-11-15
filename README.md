@@ -170,6 +170,12 @@ and Excel dates are supported. Missing currency/status requires explicit review;
 unknown gifts stay outside verified reports. Stable source/transaction IDs reuse
 the original gift, and imported ownership requires review against genuine accounts.
 
+Campaign approvals are grouped by normalized name, with optional row exceptions.
+Follow-ups search donors by name/email and can be assigned to the current staff
+member. Readable board filters, linked-gift outreach details, localized timelines,
+responsive tables and contextual empty states support the mentor demo. See the
+[local UX polish review and validation](docs/UX-POLISH.md).
+
 Verified gifts prepare idempotent thank-you drafts. Daily authenticated preparation
 creates separate quarterly donor updates/tasks, board assignment summaries and
 overdue reminders. Production scheduling needs a real preparation account and

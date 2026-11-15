@@ -133,7 +133,7 @@ try{
   await evaluate("(()=>{const form=document.querySelector('#mapping');form.elements.namedItem('review_currency').value='USD';form.elements.namedItem('review_status').value='completed';form.requestSubmit();})()");
   await wait("document.querySelector('#validated form')");
   if(retry)assert.match(await evaluate("document.querySelector('#validated').textContent"),/2 existing transactions/);
-  await evaluate("(()=>{const form=document.querySelector('#validated form');for(const owner of form.querySelectorAll('select[name^=\"owner:\"]'))owner.value=[...owner.options].find(o=>o.textContent.includes('board-a@example.test')).value;for(const campaign of form.querySelectorAll('select[name^=\"campaign:\"]')){if(campaign.options[0].textContent==='Choose campaign decision'){campaign.value='create';const row=campaign.name.split(':')[1];form.elements.namedItem('campaign-approval:'+row).checked=true;}}form.requestSubmit();})()");
+  await evaluate("(()=>{const form=document.querySelector('#validated form');for(const owner of form.querySelectorAll('select[name^=\"owner:\"]'))owner.value=[...owner.options].find(o=>o.textContent.includes('board-a@example.test')).value;for(const campaign of form.querySelectorAll('select[name^=\"campaign:\"]')){if(campaign.options[0].textContent==='Choose campaign decision'){campaign.value='create';form.elements.namedItem(campaign.name+':approved').checked=true;}}form.requestSubmit();})()");
 
   await wait("document.querySelector('#validated h3')?.textContent==='Import confirmed'");
  }
@@ -141,6 +141,32 @@ try{
  assert.equal((await database.query("SELECT count(*)::int AS n FROM campaigns WHERE name='Synthetic Browser Campaign'")).rows[0].n,1);
  assert.equal(imported.length,1);assert.equal(imported[0].first_name,'Synthetic');assert.equal(imported[0].last_name,'Browser Import');assert.equal(imported[0].phone,'+16025550123');assert.equal(imported[0].company,'Synthetic Company');
  assert.equal((await database.query('SELECT count(*)::int AS n FROM outreach_messages WHERE donation_id=$1',[imported[0].gift_id])).rows[0].n,1);
+ // Rehearse the exact five-gift mentor scenario, grouped into only two campaign decisions.
+ await evaluate("location.hash='donors'");await wait("document.querySelector('[data-donor]')");
+ await evaluate("location.hash='imports'");await wait("document.querySelector('#upload')");
+ const demoCsv=['First name,Last name,Email,Amount,Date,Currency,Status,Campaign,Transaction ID',
+ 'Demo,Alex,demo-alex@example.test,100,2026-06-15,USD,completed,DEMO Summer Coding 2026,POLISH-001',
+ 'Demo,Alex,demo-alex@example.test,1000,2026-10-20,USD,completed,DEMO Fall Coding 2026,POLISH-002',
+ 'Demo,Blair,demo-blair@example.test,500,2026-07-12,USD,completed, demo summer coding 2026 ,POLISH-003',
+ 'Demo,Casey,demo-casey@example.test,250,2026-09-05,USD,completed,DEMO Fall Coding 2026,POLISH-004',
+ 'Demo,Drew,demo-drew@example.test,750,2026-11-01,USD,completed,DEMO Fall Coding 2026,POLISH-005'].join('\n');
+ await evaluate(`(()=>{const f=document.querySelector('#upload');f.elements.source.value='generic';const t=new DataTransfer();t.items.add(new File([${JSON.stringify(demoCsv)}],'synthetic-demo.csv',{type:'text/csv'}));f.elements.file.files=t.files;f.requestSubmit();})()`);await wait("document.querySelector('#mapping')");
+ for(let repeat=0;repeat<2;repeat++){
+  await evaluate("document.querySelector('#mapping').requestSubmit()");await wait("document.querySelector('[data-campaign-group]')");
+  assert.equal(await evaluate("document.querySelectorAll('[data-campaign-group]').length"),2);
+  assert.match(await evaluate("document.querySelector('.import-summary').textContent"),/4 donor identities.*5 donation rows.*2 campaign names/);
+  if(!repeat){
+   await evaluate("(()=>{const f=document.querySelector('#validated form');for(const c of f.querySelectorAll('select[name^=\"campaign:\"]'))c.value='create';f.requestSubmit();})()");
+   await wait("document.querySelector('#validated [role=alert]')?.textContent.includes('Explicitly approve')");
+   assert.equal((await database.query("SELECT count(*)::int AS n FROM donations WHERE external_transaction_id LIKE 'POLISH-%'")).rows[0].n,0);
+   await evaluate("(()=>{const f=document.querySelector('#validated form');for(const c of f.querySelectorAll('select[name^=\"campaign:\"]'))f.elements.namedItem(c.name+':approved').checked=true;})()");
+  }else assert.match(await evaluate("document.querySelector('.import-summary').textContent"),/5 existing transactions/);
+  await evaluate("document.querySelector('#validated form').requestSubmit()");await wait("document.querySelector('#validated h3')?.textContent==='Import confirmed'");
+ }
+ const demoGifts=(await database.query("SELECT count(*)::int AS n,sum(amount)::text AS total FROM donations WHERE external_transaction_id LIKE 'POLISH-%'")).rows[0];assert.deepEqual(demoGifts,{n:5,total:'2600.00'});
+ assert.equal((await database.query("SELECT count(*)::int AS n FROM campaigns WHERE name LIKE 'DEMO %'")).rows[0].n,2);
+ // Same display name, distinct email: the selector must make the choice explicit.
+ await evaluate("(async()=>{const {api}=await import('/public/js/api.js');await api('/donors',{method:'POST',body:{name:'Demo Alex',email:'other-alex@example.test'}});})()");
  await evaluate("location.hash='settings'");await wait("[...document.querySelectorAll('main button')].some(b=>b.textContent==='Manage board member')");
  // Exercise role policy through the real forms and backend, not just helper tests.
  await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Manage board member').click()");
@@ -163,10 +189,39 @@ try{
  assert.equal((await database.query("SELECT role_id FROM users WHERE email='explicit-admin@example.test'")).rows[0].role_id,'administrator');
  // Verify the rendered donor edit and printable funder workflow against real SQL.
  await evaluate("location.hash='donors'");await wait("document.querySelector('[data-donor]')");
- const donorId=await evaluate("document.querySelector('[data-donor]').dataset.donor");
- await evaluate("document.querySelector('[data-donor]').click()");await wait("document.querySelector('#modal').open");
+ const donorId=(await database.query("SELECT id FROM donors WHERE normalized_email='demo-alex@example.test'")).rows[0].id;
+ await evaluate(`document.querySelector('[data-donor="${donorId}"]').click()`);await wait("document.querySelector('#modal').open");
  assert.equal(await evaluate("document.querySelector('#modal-fields').textContent.includes('Complete gift history')"),true);
- await evaluate("document.querySelector('#close-modal').click();location.hash='reports'");await wait("[...document.querySelectorAll('main button')].some(b=>b.textContent==='Funder gift history and outcomes')");
+ assert.match(await evaluate("document.querySelector('#modal-fields').textContent"),/\$1,000\.00/);
+ assert.equal(await evaluate("[...document.querySelectorAll('#modal-fields time')].some(t=>t.textContent.includes('T00:'))"),false);
+ await evaluate("[...document.querySelectorAll('#modal-fields button')].find(b=>b.textContent==='Add interaction note').click()");
+ await wait("document.querySelector('#modal-title').textContent==='Record a conversation'");
+ await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.type.value='call';f.elements.note.value='Synthetic deployment rehearsal interaction';f.requestSubmit();})()");await wait("!document.querySelector('#modal').open");
+ assert.equal((await database.query('SELECT count(*)::int AS n FROM activities WHERE donor_id=$1 AND content=$2',[donorId,'Synthetic deployment rehearsal interaction'])).rows[0].n,1);
+ await database.query('UPDATE users SET board_member=false'); // Disposable fixture: mirror the real empty board roster.
+ await evaluate("location.hash='tasks'");await wait("[...document.querySelectorAll('main button')].some(b=>b.textContent==='Create follow-up')");
+ await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Create follow-up').click()");await wait("document.querySelector('#modal').open");
+ await evaluate("(()=>{const s=document.querySelector('#follow-up-search');s.value='Demo Alex';s.dispatchEvent(new Event('input'));})()");
+ assert.equal(await evaluate("document.querySelector('#follow-up-donor').options.length"),3);
+ assert.equal(await evaluate("new Set([...document.querySelector('#follow-up-donor').options].map(o=>o.textContent)).size"),3);
+ await evaluate("(()=>{const s=document.querySelector('#follow-up-search');s.value='demo-alex@example.test';s.dispatchEvent(new Event('input'));s.focus();})()");
+ await cdp('Page.bringToFront');
+ for(const [key,code,n] of [['Tab','Tab',9],['ArrowDown','ArrowDown',40],['ArrowDown','ArrowDown',40]]){await cdp('Input.dispatchKeyEvent',{type:'rawKeyDown',key,code,windowsVirtualKeyCode:n,nativeVirtualKeyCode:process.platform==='darwin'?(key==='ArrowDown'?125:48):n});await cdp('Input.dispatchKeyEvent',{type:'keyUp',key,code,windowsVirtualKeyCode:n,nativeVirtualKeyCode:process.platform==='darwin'?(key==='ArrowDown'?125:48):n});}
+ assert.equal(await evaluate("document.querySelector('#follow-up-donor').value"),donorId,JSON.stringify(await evaluate("({focus:document.activeElement.id,options:[...document.querySelector('#follow-up-donor').options].map(o=>({text:o.textContent,selected:o.selected}))})")));
+ await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ assert.equal(await evaluate("(()=>{const r=document.querySelector('#follow-up-donor').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;})()"),true);
+ await cdp('Emulation.clearDeviceMetricsOverride');
+ await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.title.value='Synthetic deployment follow-up';f.elements.due_date.value='2026-11-20';f.requestSubmit();})()");await wait("!document.querySelector('#modal').open");
+ await wait("document.querySelector('#notice').textContent.includes('New follow-up saved.')");
+ await evaluate('new Promise(resolve=>setTimeout(resolve,8300))');assert.equal(await evaluate("document.querySelector('#notice').textContent"),'');
+ assert.equal((await database.query('SELECT count(*)::int AS n FROM tasks WHERE donor_id=$1 AND next_action=$2',[donorId,'Synthetic deployment follow-up'])).rows[0].n,1);
+ assert.equal((await database.query('SELECT u.email FROM tasks t JOIN users u ON t.assignee_id=u.id WHERE t.donor_id=$1 AND t.next_action=$2',[donorId,'Synthetic deployment follow-up'])).rows[0].email,'admin@example.test');
+ await evaluate("location.hash='settings'");await wait("document.querySelector('main').textContent.includes('No board members have been added.')");
+ await evaluate("location.hash='outreach'");await wait("document.querySelector('[data-draft]')");
+ assert.equal(await evaluate("[...document.querySelectorAll('[data-draft]')].filter(b=>b.closest('tr').textContent.includes('demo-alex@example.test')).length"),2);
+ assert.match(await evaluate("[...document.querySelectorAll('[data-draft]')].find(b=>b.closest('tr').textContent.includes('demo-alex@example.test')).closest('table').textContent"),/\$1,000\.00/);
+
+ await evaluate("location.hash='reports'");await wait("[...document.querySelectorAll('main button')].some(b=>b.textContent==='Funder gift history and outcomes')");
  await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Funder gift history and outcomes').click()");
  await wait("document.querySelector('#modal').open");
  await evaluate(`(()=>{const f=document.querySelector('#modal-form');f.elements.donorId.value=${JSON.stringify(donorId)};f.requestSubmit();})()`);
@@ -188,7 +243,7 @@ try{
  await evaluate("location.hash=location.hash==='#donors'?'tasks':'donors'");await wait("!document.querySelector('#sign-in').hidden");await assertSignedOut();
  assert.equal(await evaluate("location.hash"),'#sign-in');
 
- console.log(JSON.stringify({result:'PASS',realSql:true,secureBrowserCookie:true,screens:screens.length,donorProfile:true,funderPdfBytes:Buffer.from(pdf.data,'base64').length,browserExceptions:errors.length,accountRoleSafety:true,dedicatedSignIn:true,refreshPreservesMfa:true,backNavigationSafe:true,realTotp:true,signupApproval:true,mobileProfile:true,authenticatorReset:true,campaignReview:true,profileSaved:true,preferencesSaved:true,passwordChanged:true,recoveryRegenerated:true,profileMenu:true,sessionExpiry:true,logout:true}));
+ console.log(JSON.stringify({result:'PASS',realSql:true,secureBrowserCookie:true,screens:screens.length,donorProfile:true,interactionSaved:true,followUpCreated:true,searchableDonor:true,groupedCampaigns:true,mentorGifts:5,mentorTotal:2600,notificationExpires:true,emptyBoardRoster:true,assignToSelf:true,draftGiftMetadata:true,funderPdfBytes:Buffer.from(pdf.data,'base64').length,browserExceptions:errors.length,accountRoleSafety:true,dedicatedSignIn:true,refreshPreservesMfa:true,backNavigationSafe:true,realTotp:true,signupApproval:true,mobileProfile:true,authenticatorReset:true,campaignReview:true,profileSaved:true,preferencesSaved:true,passwordChanged:true,recoveryRegenerated:true,profileMenu:true,sessionExpiry:true,logout:true}));
 }finally{
  websocket?.close();if(chrome){const exited=once(chrome,'exit');chrome.kill('SIGTERM');await exited;}
  if(server)await new Promise(resolve=>server.close(resolve));await database.close();await rm(directory,{recursive:true,force:true});

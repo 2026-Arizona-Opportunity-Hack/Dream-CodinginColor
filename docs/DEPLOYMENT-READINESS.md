@@ -1,8 +1,15 @@
 # Deployment readiness and operating cost
 
-No deployment, external database connection, production migration or real message
-was performed. The application remains vanilla HTML/CSS/JS plus Node 22 and Neon
-PostgreSQL. Use the CIC-owned repository and hosting accounts.
+Current approval-ready release instructions, exposed-key rotation plan, and Hobby
+manual-deployment route: [VERCEL-RELEASE-HANDOFF.md](VERCEL-RELEASE-HANDOFF.md).
+The database/connection statements below describe the initial audit; migrations
+006 and 007 were subsequently applied with explicit approval.
+
+The initial audit performed no deployment, external database connection, production
+migration or real messaging. Later authorized localhost repair applied migrations
+006 and 007 to the configured Neon database. Current preparation makes no further
+shared-data changes. The application remains vanilla HTML/CSS/JS plus Node 22 and
+Neon PostgreSQL. Use the CIC-owned repository and hosting accounts.
 
 ## Local build evidence
 

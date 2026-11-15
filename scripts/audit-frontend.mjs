@@ -26,7 +26,7 @@ fixtures['/api/custom-fields']=[{id:'audit-field',key:'interest',label:'Communit
 fixtures['/api/campaigns']=[{id:'audit-campaign',name:'Digital learning',archived_at:null}];
 fixtures['/api/roles']=[{id:'administrator',name:'Administrator',permissions:['reports.read']}];
 fixtures['/api/retention/settings']={inactivityMonths:12};
-const server=createServer(async(req,res)=>{const path=new URL(req.url,'http://localhost').pathname;try{if(path.startsWith('/api/')){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({data:fixtures[path]??[]}));return;}const file=path==='/'?'index.html':path.slice(1);if(!['index.html','public/css/app.css','public/js/app.js','public/js/api.js','public/js/account-forms.js','public/js/imports.js','public/js/auth-ui.js'].includes(file)){res.writeHead(404).end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(await readFile(`${root}/${file}`));}catch(e){res.writeHead(500).end(e.message);}});
+const server=createServer(async(req,res)=>{const path=new URL(req.url,'http://localhost').pathname;try{if(path.startsWith('/api/')){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({data:fixtures[path]??[]}));return;}const file=path==='/'?'index.html':path.slice(1);if(!['index.html','public/css/app.css','public/js/app.js','public/js/api.js','public/js/account-forms.js','public/js/imports.js','public/js/auth-ui.js','public/js/ui.js','public/js/import-review.js'].includes(file)){res.writeHead(404).end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(await readFile(`${root}/${file}`));}catch(e){res.writeHead(500).end(e.message);}});
 server.listen(0,'127.0.0.1');await once(server,'listening');
 const chrome=spawn(process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless=new','--no-first-run','--no-default-browser-check','--remote-debugging-port=0',`--user-data-dir=${join(tmpdir(),`colorloop-audit-profile-${process.pid}`)}`,'about:blank'],{stdio:['ignore','ignore','pipe']});
 let websocket;
@@ -78,11 +78,11 @@ try{
  await evaluate(`document.querySelector('.table-wrap').focus()`);
  await cdp('Emulation.setDeviceMetricsOverride',{width:375,height:812,deviceScaleFactor:1,mobile:false});
  await key('ArrowRight','ArrowRight',{windowsVirtualKeyCode:39});
- const tableKeyboardScroll=await evaluate(`document.querySelector('.table-wrap').scrollLeft>0`);
+ const tableFitsOrScrolls=await evaluate(`(()=>{const t=document.querySelector('.table-wrap');return t.scrollWidth<=t.clientWidth+1||t.scrollLeft>0;})()`);
  const tablesFocusable=await evaluate(`[...document.querySelectorAll('.table-wrap')].every(t=>t.tabIndex===0&&!!t.getAttribute('aria-label'))`);
  await evaluate(`document.querySelector('nav a[href="#reports"]').focus()`);await key('Enter','Enter',{windowsVirtualKeyCode:13});await waitReady();
  const routeFocus=await evaluate(`document.activeElement.id==='main'&&document.title.startsWith('Reports')`);
- const keyboard={skipFocused,focusStyle,skipWorks,dialogStartsOnName,dialogTrapsFocus,dialogReturnsFocus,tablesFocusable,tableKeyboardScroll,routeFocus};
+ const keyboard={skipFocused,focusStyle,skipWorks,dialogStartsOnName,dialogTrapsFocus,dialogReturnsFocus,tablesFocusable,tableFitsOrScrolls,routeFocus};
  const css=await readFile(`${root}/public/css/app.css`,'utf8');
  const approved=new Set(['#007A3D','#00A850','#E6F4ED','#FFFFFF','#595959','#C8C8C8','#000000']);
  const offPalette=[...new Set(css.match(/#[0-9a-f]{3,8}\b/gi)||[])].filter(c=>!approved.has(c.toUpperCase()));
