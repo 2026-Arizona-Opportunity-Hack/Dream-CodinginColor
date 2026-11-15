@@ -16,7 +16,7 @@ const upload=(matrix,kind='csv')=>({filename:`synthetic-organizations.${kind}`,s
 
 test('CSV/XLSX preserve independent organization, employer, human contact and board fields',async()=>{
  for(const kind of ['csv','xlsx']){
-  const p=await parseImport(upload([header,['Opportunity Hack','organization','Synthetic Employer','Opportunity Hack','Synthetic Human','Synthetic Board']],kind));
+  const p=await parseImport(upload([header,['Opportunity Hack','Organization','Synthetic Employer','Opportunity Hack','Synthetic Human','Synthetic Board']],kind));
   assert.deepEqual(p.rows[0].errors,[]);const data=p.rows[0].data;
   assert.equal(data.donor.organization_name,'Opportunity Hack');assert.equal(data.donor.company,'Synthetic Employer');assert.equal(data.donor.contact_person,'Synthetic Human');assert.equal(data.board_contact,'Synthetic Board');assert.equal(data.donor.donor_type,'organization');assert.equal(data.organization_suggestion,null);
  }
