@@ -134,7 +134,7 @@ try{
   await evaluate("(()=>{const form=document.querySelector('#mapping');form.elements.namedItem('review_currency').value='USD';form.elements.namedItem('review_status').value='completed';form.requestSubmit();})()");
   await wait("document.querySelector('#validated form')");
   if(retry)assert.match(await evaluate("document.querySelector('#validated').textContent"),/2 existing transactions/);
-  await evaluate("(()=>{const form=document.querySelector('#validated form');for(const owner of form.querySelectorAll('select[name^=\"owner:\"]'))owner.value=[...owner.options].find(o=>o.textContent.includes('board-a@example.test')).value;for(const campaign of form.querySelectorAll('select[name^=\"campaign:\"]')){if(campaign.options[0].textContent==='Choose campaign decision'){campaign.value='create';form.elements.namedItem(campaign.name+':approved').checked=true;}}form.requestSubmit();})()");
+  await evaluate("(()=>{const form=document.querySelector('#validated form');form.querySelector('#approve-recognized-owners')?.click();for(const campaign of form.querySelectorAll('select[name^=\"campaign:\"]')){if(campaign.options[0].textContent==='Choose campaign decision'){campaign.value='create';form.elements.namedItem(campaign.name+':approved').checked=true;}}form.requestSubmit();})()");
 
   await wait("document.querySelector('#final-confirmation .primary')");await evaluate("document.querySelector('#final-confirmation .primary').click()");await wait("document.querySelector('#validated h3')?.textContent==='Import confirmed'");
  }

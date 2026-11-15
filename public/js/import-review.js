@@ -1,4 +1,5 @@
 const normalized=value=>String(value||'').trim().toLowerCase();
+export const recognizedOwners=rows=>rows.filter(r=>r.data?.board_contact&&r.board_candidates?.length===1).map(r=>({row:r.row_number,owner:r.board_candidates[0].id}));
 export function campaignGroups(rows){
  const groups=new Map();
  for(const row of rows){if(!row.campaign_review)continue;const key=normalized(row.campaign_review.name);if(!groups.has(key))groups.set(key,{index:groups.size,name:row.campaign_review.name.trim(),rows:[]});groups.get(key).rows.push(row);}

@@ -52,3 +52,18 @@ Live donor automation must stay disabled until CIC approves activation.
 Organization checkpoint validation: 36 focused tests passed, zero failed; the static
 build passed. Coverage includes independent CSV/XLSX fields, approved suggestions,
 explicit type preservation and populated 007 → 008 upgrade without historical changes.
+
+## Milestone 3 — fair ownership and bulk approval
+
+- SQL imports/manual entry and state-based assignment use the fewest active donors,
+  rotating tied member IDs after the last automatic allocation. A transaction-safe
+  sequence in existing audit records survives process restarts and bulk operations.
+- Inactive accounts/roles are ineligible. Existing owners and manual overrides
+  remain supported. Zero eligible members leaves new imported/manual donors
+  visibly unassigned; no account is invented.
+- Approve All Recognized Board Contacts fills only unambiguous, undecided matches.
+  Existing choices are preserved. Server confirmation revalidates active role,
+  identity and membership, rejecting stale/forged choices transactionally.
+- Validation: 22 focused tests passed, zero failed; the complete Chrome/HTTPS/SQL
+  smoke passed with zero browser exceptions, including bulk approval and the new
+  independent organization/contact-person form values. No extra migration needed.

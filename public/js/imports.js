@@ -1,5 +1,5 @@
 import {pagedRead} from './mentor-data.js';
-import {campaignGroups,reviewedImportRows,importSummary} from './import-review.js';
+import {campaignGroups,reviewedImportRows,importSummary,recognizedOwners} from './import-review.js';
 import {displayMoney,displayDate} from './ui.js';
 let cachedReview=null;
 export const resetImportReview=()=>{cachedReview?.replaceChildren();cachedReview=null;};
@@ -73,10 +73,11 @@ export async function renderImports(root,{api,esc,canCreateCampaign=false}) {
             if(row.possible_duplicate_gift)decisions.insertAdjacentHTML('beforeend',`<label><span><input type="checkbox" name="duplicate:${row.row_number}"> Row ${row.row_number}: I verified this amount/date match is a distinct gift</span></label>`);
             if(row.data.board_contact)decisions.insertAdjacentHTML('beforeend',choices(`owner:${row.row_number}`,`Row ${row.row_number}: review imported contact ${row.data.board_contact}`,[['','Choose ownership decision'],...(row.board_candidates||[]).map(u=>[u.id,`${u.name} (${u.email}) · ${workload(u.id)} active donors`]),['balanced','Keep existing owner / use balanced assignment']]));
           }
-          decisions.insertAdjacentHTML('beforeend','<p id="decision-help" role="status"></p><button class="primary">Review confirmation</button>');output.append(decisions);
-          const checkDecisions=()=>{try{reviewedImportRows(preview,Object.fromEntries(new FormData(decisions)),groups);decisions.querySelector('button').disabled=false;decisions.querySelector('#decision-help').textContent='All required decisions are recorded.';}catch(error){decisions.querySelector('button').disabled=true;decisions.querySelector('#decision-help').textContent=error.message;}};decisions.oninput=()=>{output.querySelector('#final-confirmation')?.remove();progress(root,3);checkDecisions();};checkDecisions();
+          decisions.insertAdjacentHTML('beforeend','<p id="decision-help" role="status"></p><button type="submit" class="primary">Review confirmation</button>');output.append(decisions);
+          const checkDecisions=()=>{try{reviewedImportRows(preview,Object.fromEntries(new FormData(decisions)),groups);decisions.querySelector('button[type=submit]').disabled=false;decisions.querySelector('#decision-help').textContent='All required decisions are recorded.';}catch(error){decisions.querySelector('button[type=submit]').disabled=true;decisions.querySelector('#decision-help').textContent=error.message;}};decisions.oninput=()=>{output.querySelector('#final-confirmation')?.remove();progress(root,3);checkDecisions();};checkDecisions();
+          const recognized=recognizedOwners(preview.rows);if(recognized.length){const approve=document.createElement('button');approve.type='button';approve.id='approve-recognized-owners';approve.textContent='Approve All Recognized Board Contacts';decisions.prepend(approve);approve.onclick=()=>{let count=0;for(const match of recognized){const control=decisions.elements.namedItem(`owner:${match.row}`);if(control&&!control.value){control.value=match.owner;count++;}}decisions.dispatchEvent(new Event('input',{bubbles:true}));decisions.querySelector('#decision-help').textContent+=` ${count} unambiguous contact decisions approved. Ambiguous or missing contacts still need review.`;};}
           decisions.onsubmit=async event=>{
-            event.preventDefault();const button=decisions.querySelector('button');button.disabled=true;
+            event.preventDefault();const button=decisions.querySelector('button[type=submit]');button.disabled=true;
             try{
               const review=reviewedImportRows(preview,Object.fromEntries(new FormData(decisions)),groups);
               progress(root,4);output.querySelector('#final-confirmation')?.remove();
