@@ -47,7 +47,7 @@ try{
  const cdp=(method,params)=>send(method,params,sessionId);
  await cdp('Page.enable');await cdp('Runtime.enable');
  const evaluate=async expression=>{const value=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(value.exceptionDetails)throw new Error(JSON.stringify(value.exceptionDetails));return value.result.value;};
- const waitReady=()=>evaluate(`new Promise((resolve,reject)=>{let n=0;const poll=()=>{if(document.querySelector('main h1')&&!document.querySelector('main [role="status"]')&&document.querySelector('main').textContent.length>100)return resolve(true);if(++n>100)return reject(new Error('UI not ready'));setTimeout(poll,30);};poll();})`);
+ const waitReady=()=>evaluate(`new Promise((resolve,reject)=>{let n=0;const poll=()=>{if(document.querySelector('main h1')&&!document.querySelector('main .loading')&&document.querySelector('main').textContent.length>100)return resolve(true);if(++n>100)return reject(new Error('UI not ready'));setTimeout(poll,30);};poll();})`);
  const results=[];
  for(const [name,width,height,scale=1] of [['desktop',1440,1000],['tablet',768,1024],['mobile',390,844],['narrow',320,800],['zoom200',720,500,2]]){
   await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:scale,mobile:false});

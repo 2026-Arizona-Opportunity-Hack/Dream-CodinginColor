@@ -205,11 +205,22 @@ try{
   await evaluate(`document.querySelector('[data-donor="${donorId}"]').click()`);await wait("document.querySelector('#donor-section')");
   assert.equal(await evaluate("new URLSearchParams(document.querySelector('.back-link').getAttribute('href').split('?')[1]).get('q')"),'Demo Alex');
   await evaluate('history.back()');await wait("document.querySelector('#donor-search')?.value==='Demo Alex'");
+  // Configure and exercise the genuine admin policy UI with delivery explicitly off.
+  await evaluate("location.hash='settings?section=outreach'");await wait("[...document.querySelectorAll('main button')].some(b=>b.textContent==='Email automation policy')");
+  await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Email automation policy').click()");await wait("document.querySelector('#modal').open&&document.querySelector('#modal-title').textContent==='Email automation policy'");
+  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.donorEnabled.value='false';f.elements.boardEnabled.value='false';f.elements.reason.value='Synthetic browser administrator keeps all email automation disabled';f.elements.confirmed.checked=true;f.requestSubmit();})()");await wait("!document.querySelector('#modal').open");
+  const emailPolicy=(await database.query('SELECT email_policy FROM retention_settings')).rows[0].email_policy;assert.equal(emailPolicy.donorEnabled,false);assert.equal(emailPolicy.boardEnabled,false);
+  assert.equal((await evaluate("(async()=>{const {api}=await import('/public/js/api.js');return api('/email/run',{method:'POST',body:{confirmed:true}});})()")).enabled,false);
+  const emailConfirmation=new Promise(resolve=>{const listener=event=>{const data=JSON.parse(event.data);if(data.method==='Page.javascriptDialogOpening'){websocket.removeEventListener('message',listener);resolve(data.params);}};websocket.addEventListener('message',listener);});
+  await evaluate("setTimeout(()=>[...document.querySelectorAll('main button')].find(b=>b.textContent==='Process approved email queue').click(),0)");assert.equal((await emailConfirmation).type,'confirm');await cdp('Page.handleJavaScriptDialog',{accept:true});
+  await wait("[...document.querySelectorAll('main [role=status]')].some(p=>p.textContent.includes('Email delivery is disabled'))");
+  await evaluate("location.hash='donors'");await wait("document.querySelector('#donor-search')");
   // Initial gift is optional, saves atomically, and uses the existing gift ledger.
   await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Add donor').click()");await wait("document.querySelector('#modal').open");
-  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.name.value='Synthetic Initial Form';f.elements.initial_amount.value='12.34';f.elements.initial_currency.value='USD';f.elements.initial_status.value='completed';f.elements.initial_source.value='check';f.requestSubmit();f.requestSubmit();})()");
-  await wait("!document.querySelector('#modal').open&&document.querySelector('main h1')?.textContent==='Synthetic Initial Form'");
-  const initialFormGift=(await database.query("SELECT g.amount,g.source FROM donations g JOIN donors d ON d.id=g.donor_id WHERE d.display_name='Synthetic Initial Form'")).rows;assert.deepEqual(initialFormGift,[{amount:'12.34',source:'check'}]);
+  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.name.value='Synthetic Opportunity Hack Initial';f.elements.name.dispatchEvent(new Event('input',{bubbles:true}));[...f.querySelectorAll('button')].find(b=>b.textContent==='Use Organization').click();f.elements.organization_name.value='Synthetic Opportunity Hack';f.elements.contact_person.value='Synthetic Treasurer';f.elements.initial_amount.value='12.34';f.elements.initial_currency.value='USD';f.elements.initial_status.value='completed';f.elements.initial_source.value='check';f.requestSubmit();f.requestSubmit();})()");
+  await wait("!document.querySelector('#modal').open&&document.querySelector('main h1')?.textContent==='Synthetic Opportunity Hack Initial'");
+  assert.equal((await database.query("SELECT donor_type FROM donors WHERE display_name='Synthetic Opportunity Hack Initial'")).rows[0].donor_type,'organization');
+  const initialFormGift=(await database.query("SELECT g.amount,g.source FROM donations g JOIN donors d ON d.id=g.donor_id WHERE d.display_name='Synthetic Opportunity Hack Initial'")).rows;assert.deepEqual(initialFormGift,[{amount:'12.34',source:'check'}]);
   await evaluate("location.hash='donors'");await wait("document.querySelector('#donor-search')");
   // Create a real synthetic donor without an initial gift.
   await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Add donor').click()");await wait("document.querySelector('#modal').open");

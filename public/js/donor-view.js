@@ -31,6 +31,8 @@ export function taskBucket(task,today){
  return day<=soon.toISOString().slice(0,10)?'soon':'later';
 }
 export const localDay=(now=new Date(),zone='America/Phoenix')=>new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+// Date-only form values persist at UTC midnight; do not move their due day backward.
+export const followUpDay=(value,zone='America/Phoenix')=>{const date=new Date(value),iso=date.toISOString();return iso.endsWith('T00:00:00.000Z')?iso.slice(0,10):localDay(date,zone);};
 
 export const boardScoped=user=>user.roleId!=='administrator'&&(user.boardMember||user.roleId==='board-member');
 

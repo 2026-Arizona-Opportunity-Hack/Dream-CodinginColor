@@ -1,4 +1,4 @@
-import {localDay} from './donor-view.js';
+import {followUpDay} from './donor-view.js';
 import {api,rows} from './api.js';
 export async function pagedRead(path,read=api){
  const items=[];
@@ -11,7 +11,7 @@ export async function pagedRead(path,read=api){
  throw new Error('Too many records to load. Narrow this request.');
 }
 export async function loadFollowUps(donorId,zone='America/Phoenix'){
- try{return (await pagedRead('/v1/follow-ups'+(donorId?'?donor_id='+encodeURIComponent(donorId):''))).map(t=>({...t,title:t.next_action,due_date:t.due_at?localDay(new Date(t.due_at),zone):null,dueAt:t.due_at}));}
+ try{return (await pagedRead('/v1/follow-ups'+(donorId?'?donor_id='+encodeURIComponent(donorId):''))).map(t=>({...t,title:t.next_action,due_date:t.due_at?followUpDay(t.due_at,zone):null,dueAt:t.due_at}));}
  catch(error){if(![404,405].includes(error.status))throw error;return rows(await api('/tasks'+(donorId?'?donorId='+encodeURIComponent(donorId):'')));}
 }
 export async function loadOverview(day,zone){

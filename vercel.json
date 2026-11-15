@@ -37,7 +37,7 @@
   "crons": [
     {
       "path": "/api/jobs/prepare",
-      "schedule": "0 6 * * *"
+      "schedule": "0 16 * * *"
     }
   ]
 }

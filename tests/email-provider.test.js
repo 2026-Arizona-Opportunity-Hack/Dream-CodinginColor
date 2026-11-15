@@ -17,7 +17,7 @@ test('email delivery is disabled by default; reserved addresses and unverified t
  assert.equal(emailConfiguration({}).mode,'disabled');assert.throws(()=>createEmailProvider({env:{}}),{code:'EMAIL_DISABLED'});
  assert.throws(()=>createEmailProvider({env:{EMAIL_DELIVERY_MODE:'test'}}),{code:'EMAIL_UNCONFIGURED'});
  let calls=0;const provider=createEmailProvider({env,fetcher:async()=>{calls++;return response({id:'synthetic-provider-id'});}});
- for(const to of ['synthetic@example.com','synthetic@sub.example.org','synthetic@example.test','synthetic@localhost.invalid','delivered@resend.dev','not-allowed@cic-approved-mail.org'])await assert.rejects(provider.sendEmail({...payload,to}),e=>['EMAIL_RECIPIENT_BLOCKED','EMAIL_TEST_INBOX_REQUIRED'].includes(e.code));
+ for(const to of ['synthetic@example.com','synthetic@sub.example.org','synthetic@example.com.','synthetic@sub.EXAMPLE.COM','synthetic@example.test','synthetic@localhost.invalid','delivered@resend.dev','not-allowed@cic-approved-mail.org'])await assert.rejects(provider.sendEmail({...payload,to}),e=>['EMAIL_RECIPIENT_BLOCKED','EMAIL_TEST_INBOX_REQUIRED'].includes(e.code));
  assert.equal(calls,0);
  const forcedTest=createEmailProvider({env:{...env,EMAIL_DELIVERY_MODE:'live',COLORLOOP_DEMO:'true',NODE_ENV:'production'},fetcher:async()=>{calls++;}});
  await assert.rejects(forcedTest.sendEmail({...payload,to:'not-allowed@cic-approved-mail.org'}),{code:'EMAIL_TEST_INBOX_REQUIRED'});assert.equal(calls,0);
