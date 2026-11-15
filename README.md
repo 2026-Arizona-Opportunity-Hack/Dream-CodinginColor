@@ -181,7 +181,10 @@ suggestions require review; equal donor workloads rotate fairly, and unambiguous
 board contacts can be approved together.
 
 Optional [real email delivery and board reminders](docs/EMAIL-OPERATIONS.md) reuse
-the approved-draft and delivery-history workflow. Transport and activation policies
+the approved-draft and delivery-history workflow. Outreach's **Approve & Send Email**
+action binds human review to the exact donor recipient and message revision, then
+immediately sends through Resend. History distinguishes provider acceptance from
+confirmed delivery; manual handoff remains an optional fallback. Transport and activation policies
 are OFF by default. Local/demo mail requires real verified test inboxes; synthetic
 addresses are blocked. Resend accepted one explicitly approved test thank-you and
 one board reminder; duplicate queue/job runs made no additional send requests.
