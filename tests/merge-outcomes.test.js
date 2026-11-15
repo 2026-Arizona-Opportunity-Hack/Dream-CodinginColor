@@ -1,3 +1,4 @@
+import {signIn} from './auth-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createIsolatedDatabase} from '../lib/isolated-database.js';
@@ -15,7 +16,7 @@ test('merges retain verified funder evidence in the canonical packet, preserve a
  try{
   await db.transaction(migrate);const store=createSqlStore(db);
   const operator=await bootstrapAdministrator(store,{name:'Synthetic operator',email:'outcomes@example.test',password},now);
-  const session=await login(store,{email:operator.email,password},'192.0.2.1',now);
+  const session=await signIn(store,{email:operator.email,password},'192.0.2.1',now);
   const main=await db.transaction(q=>createDonor(q,{donor_type:'organization',display_name:'Synthetic canonical'},operator.id));
   const old=await db.transaction(q=>createDonor(q,{donor_type:'organization',display_name:'Synthetic alias'},operator.id));
   await db.transaction(q=>addDonation(q,{donor_id:old.id,amount:'12.50',donation_date:'2026-03-01',currency:'USD',status:'completed',source:'synthetic'}));

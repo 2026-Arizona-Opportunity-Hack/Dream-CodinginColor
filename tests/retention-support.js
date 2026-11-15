@@ -1,15 +1,16 @@
 import { createMemoryStore } from '../lib/retention-store.js';
-import { bootstrapAdministrator, login } from '../lib/auth.js';
+import { bootstrapAdministrator } from '../lib/auth.js';
+import {signIn} from './auth-support.js';
 import { createHandler } from '../lib/retention-api.js';
 
 export const now = new Date('2026-11-14T18:00:00.000Z');
 export const origin = 'https://colorloop.example';
-export const password = 'synthetic password for tests';
+export const password = 'SyntheticTests123!';
 export async function fixture(seed = {}) {
   const store = createMemoryStore(seed);
   const admin = await bootstrapAdministrator(store, { name: 'Synthetic Admin',
     email: 'admin@example.test', password }, now);
-  const session = await login(store, { email: admin.email, password }, 'test', now);
+  const session = await signIn(store, { email: admin.email, password }, 'test', now);
   return { store, admin: { ...admin, administrator: true }, session };
 }
 export async function request(store, route, method = 'GET', input = {}, session, extra = {}) {

@@ -1,3 +1,4 @@
+import {signIn} from './auth-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, request, now, password } from './retention-support.js';
@@ -16,7 +17,7 @@ test('authentication, permissions, CSRF, account changes, and session lifecycle'
   assert.equal(me.body.data.csrfToken, session.csrfToken);
   const member = await saveUser(store, admin, { name: 'Synthetic Member', email: 'member@example.test',
     password, roleId: 'board-member', boardMember: true }, now);
-  const memberSession = await login(store, { email: member.email, password }, 'member', now);
+  const memberSession = await signIn(store, { email: member.email, password }, 'member', now);
   assert.equal((await request(store, 'users', 'GET', {}, memberSession)).statusCode, 403);
   assert.equal((await request(store, 'users', 'PATCH', { id: member.id, roleId: 'administrator' }, memberSession)).statusCode, 403);
   assert.equal((await request(store, 'users', 'PATCH', { id: admin.id, active: false }, session)).statusCode, 403);

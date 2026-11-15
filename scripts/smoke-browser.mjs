@@ -1,3 +1,4 @@
+import {authenticator,decryptTotp} from '../lib/totp.js';
 import assert from 'node:assert/strict';
 import { mkdtemp,readFile,writeFile,rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -10,7 +11,8 @@ import { initializeSyntheticDemo } from '../lib/demo-data.js';
 import { migrate } from '../lib/database-setup.js';
 import { startServer } from './dev.js';
 const directory=await mkdtemp(join(tmpdir(),'colorloop-browser-'));
-const database=await createIsolatedDatabase(),password=randomBytes(24).toString('hex');
+const database=await createIsolatedDatabase();let password='Aa1!'+randomBytes(24).toString('hex');
+process.env.MFA_ENCRYPTION_KEY=randomBytes(32).toString('base64');
 let server,chrome,websocket;
 try{
  await database.transaction(migrate);const store=await initializeSyntheticDemo(database,password);
@@ -27,10 +29,92 @@ try{
  const errors=[];websocket.addEventListener('message',event=>{const message=JSON.parse(event.data);if(message.method==='Runtime.exceptionThrown')errors.push(message.params.exceptionDetails.text);});
  const evaluate=async expression=>{const result=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(result.exceptionDetails)throw new Error(result.exceptionDetails.text);return result.result.value;};
  const wait=expression=>evaluate(`new Promise((resolve,reject)=>{let n=0;const poll=()=>{if(${expression})return resolve(true);if(++n>200)return reject(new Error('UI condition timed out'));setTimeout(poll,30);};poll();})`);
- await cdp('Page.navigate',{url:base});await wait("document.querySelector('main h1')");
- await evaluate("document.querySelector('#session').click()");await wait("document.querySelector('#modal').open");
- await evaluate(`(()=>{const f=document.querySelector('#modal-form');f.elements.email.value='admin@example.test';f.elements.password.value=${JSON.stringify(password)};f.requestSubmit();})()`);
- await wait("!document.querySelector('#modal').open&&document.querySelector('#session').textContent!=='Sign in'");
+ await cdp('Network.enable');const apiRequests=[];
+ websocket.addEventListener('message',event=>{const message=JSON.parse(event.data);if(message.method==='Network.requestWillBeSent'&&message.params.request.url.includes('/api/'))apiRequests.push(new URL(message.params.request.url).pathname);});
+ await cdp('Page.navigate',{url:base});await wait("!document.querySelector('#sign-in').hidden");
+ const assertSignedOut=async()=>{
+  assert.equal(await evaluate("document.querySelector('#app-shell').hidden"),true);
+  assert.equal(await evaluate("document.querySelector('#main').childElementCount"),0);
+  assert.equal(await evaluate("document.querySelector('#modal').open"),false);
+  assert.equal(await evaluate("document.querySelector('#sign-in').textContent.includes('Please sign in')||document.querySelector('#sign-in').textContent.includes('Try again')"),false);
+ };
+ await assertSignedOut();assert.deepEqual(apiRequests,['/api/auth/me']);
+ await writeFile(join(tmpdir(),'colorloop-auth-sign-in.png'),Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+ const signIn=async(value,email='admin@example.test')=>evaluate(`(()=>{const f=document.querySelector('#sign-in-form');f.elements.email.value=${JSON.stringify(email)};f.elements.password.value=${JSON.stringify(value)};f.requestSubmit();})()`);
+ const applicantPassword=password;
+ await evaluate("document.querySelector('#auth-sign-up').click()");
+ await evaluate(`(()=>{const f=document.querySelector('#sign-in-form');f.elements.name.value='Synthetic Applicant';f.elements.email.value='applicant-browser@example.test';f.elements.password.value=${JSON.stringify(applicantPassword)};document.querySelector('[data-toggle-password]').click();})()`);
+ assert.equal(await evaluate("document.querySelector('[data-password]').type"),'text');await evaluate("document.querySelector('[data-toggle-password]').click();document.querySelector('#sign-in-form').requestSubmit()");
+ await wait("document.querySelector('#auth-content [role=status]')");
+ assert.equal((await database.query("SELECT count(*)::int AS n FROM account_requests WHERE status='pending'")).rows[0].n,1);
+ assert.equal((await database.query("SELECT count(*)::int AS n FROM users WHERE email='applicant-browser@example.test'")).rows[0].n,0);
+ await signIn('incorrect synthetic password');await wait("document.querySelector('#sign-in-error').textContent.length>0");await assertSignedOut();
+ let recoveryCodes=[];
+ async function completeBrowserAuthentication(email='admin@example.test',loginPassword=password){
+  await wait("['Set up two-factor authentication','Verify your sign-in'].includes(document.querySelector('#auth-content h1')?.textContent)");
+  assert.equal(await evaluate("document.querySelector('#app-shell').hidden"),true);
+  if(await evaluate("document.querySelector('#auth-content h1').textContent==='Set up two-factor authentication'")){
+   await evaluate(`(()=>{const f=document.querySelector('#sign-in-form');f.elements.currentPassword.value=${JSON.stringify(loginPassword)};f.requestSubmit();})()`);
+   await wait("document.querySelector('.enrollment-qr')");
+   const user=await store.read(s=>s.users.find(u=>u.email===email));
+   const code=authenticator(decryptTotp(user.totpPendingCiphertext,user.id),user.email).generate();
+   await evaluate("(()=>{const f=document.querySelector('#sign-in-form');f.elements.code.value='invalid';f.noValidate=true;f.requestSubmit();})()");
+   await wait("document.querySelector('#sign-in-error').textContent.length>0");assert.equal(await evaluate("document.querySelector('#app-shell').hidden"),true);
+   await evaluate(`(()=>{const f=document.querySelector('#sign-in-form');f.elements.code.value=${JSON.stringify(code)};f.requestSubmit();})()`);
+   await wait("document.querySelector('#recovery-done')");recoveryCodes=await evaluate("[...document.querySelectorAll('[data-recovery-code]')].map(e=>e.textContent)");assert.equal(recoveryCodes.length,10);
+   await evaluate("document.querySelector('#recovery-done').click()");
+  }else{
+   // Use genuine single-use recovery codes after enrollment; never bypass a factor.
+   await evaluate("[...document.querySelectorAll('#auth-content button')].find(b=>b.textContent==='Use a recovery code').click()");
+   const recovery=recoveryCodes.shift();assert.ok(recovery);
+   await evaluate(`(()=>{const f=document.querySelector('#sign-in-form');f.elements.recoveryCode.value=${JSON.stringify(recovery)};f.requestSubmit();})()`);
+  }
+  await wait("!document.querySelector('#app-shell').hidden&&document.querySelector('main h1')");
+ }
+ await signIn(password);await completeBrowserAuthentication();
+ await cdp('Page.reload');await wait("!document.querySelector('#app-shell').hidden&&document.querySelector('main h1')");
+ assert.equal(await evaluate("document.querySelector('#sign-in').hidden"),true);
+ await evaluate("document.querySelector('#session').click()");await wait("!document.querySelector('#account-dropdown').hidden");
+ assert.equal(apiRequests.filter(path=>path==='/api/auth/logout').length,0);
+ assert.match(await evaluate("document.querySelector('#account-dropdown').textContent"),/admin@example.test/);
+ assert.match(await evaluate("document.querySelector('#account-role').textContent"),/Administrator/);
+ await writeFile(join(tmpdir(),'colorloop-auth-menu.png'),Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+ await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+ assert.equal(await evaluate("document.querySelector('#account-dropdown').hidden&&document.activeElement.id==='session'"),true);
+ await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowUp',code:'ArrowUp',windowsVirtualKeyCode:38});await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowUp',code:'ArrowUp',windowsVirtualKeyCode:38});
+ assert.equal(await evaluate("document.activeElement.id"),'sign-out');
+ await evaluate("document.querySelector('main h1').click()");assert.equal(await evaluate("document.querySelector('#account-dropdown').hidden"),true);
+ await evaluate("document.querySelector('#session').click()");
+ await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await cdp('Emulation.setTouchEmulationEnabled',{enabled:true});
+ const point=await evaluate("(()=>{const r=document.querySelector('#my-profile').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
+ await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});await evaluate('new Promise(resolve=>setTimeout(resolve,80))');await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await wait("document.querySelector('#modal').open");
+
+ assert.equal(await evaluate("document.querySelector('#modal-title').textContent"),'My Profile');
+ assert.match(await evaluate("document.querySelector('#modal-fields').textContent"),/admin@example.test/);
+ await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.name.value='Synthetic Updated Administrator';f.requestSubmit();})()");await wait("!document.querySelector('#modal').open");assert.equal((await database.query("SELECT name FROM users WHERE email='admin@example.test'")).rows[0].name,'Synthetic Updated Administrator');
+ await cdp('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp('Emulation.clearDeviceMetricsOverride');
+ await evaluate("document.querySelector('#session').click();document.querySelector('#account-security').click()");await wait("document.querySelector('#modal').open");
+ assert.equal(await evaluate("document.querySelector('#modal-title').textContent"),'Security');
+ await evaluate("document.querySelector('#close-modal').click()");
+ await evaluate("document.querySelector('#session').click();document.querySelector('#account-settings').click()");await wait("document.querySelector('#modal-title').textContent==='Account Settings'&&document.querySelector('#modal').open");
+ await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.startPage.value='donors';f.elements.timeZone.value='UTC';f.requestSubmit();})()");await wait("!document.querySelector('#modal').open");
+ assert.equal((await store.read(s=>s.users.find(u=>u.email==='admin@example.test'))).preferences.startPage,'donors');
+ await evaluate("document.querySelector('#session').click();document.querySelector('#account-settings').click()");await wait("document.querySelector('#admin-account-actions')");
+ await evaluate("[...document.querySelectorAll('#admin-account-actions button')].find(b=>b.textContent==='Review account requests').click()");await wait("document.querySelector('#modal-title').textContent==='Review account requests'");
+ await evaluate("document.querySelector('#modal-form').requestSubmit()");await wait("document.querySelector('#modal-fields').textContent.includes('No pending account requests')");
+ assert.equal((await database.query("SELECT count(*)::int AS n FROM users WHERE email='applicant-browser@example.test' AND role_id='board-member' AND NOT totp_enabled")).rows[0].n,1);
+ await evaluate("document.querySelector('#close-modal').click()");
+ // Security actions reauthenticate and use genuine recovery codes; the UI never sends messages.
+ await evaluate("document.querySelector('#session').click();document.querySelector('#account-security').click()");await wait("document.querySelector('#security-actions')");
+ await evaluate("[...document.querySelectorAll('#security-actions button')].find(b=>b.textContent==='Regenerate recovery codes').click()");
+ let recovery=recoveryCodes.shift();await evaluate(`(()=>{const f=document.querySelector('#modal-form');f.elements.currentPassword.value=${JSON.stringify(password)};f.elements.recoveryCode.value=${JSON.stringify(recovery)};f.requestSubmit();})()`);
+ await wait("document.querySelector('[data-recovery-code]')");recoveryCodes=await evaluate("[...document.querySelectorAll('[data-recovery-code]')].map(e=>e.textContent)");await evaluate("document.querySelector('#modal-form').requestSubmit()");await wait("!document.querySelector('#modal').open");
+ await evaluate("document.querySelector('#session').click();document.querySelector('#account-security').click()");await wait("document.querySelector('#security-actions')");await evaluate("[...document.querySelectorAll('#security-actions button')].find(b=>b.textContent==='Change password').click()");
+ const nextPassword='Bb2@'+randomBytes(24).toString('hex');recovery=recoveryCodes.shift();
+ await evaluate(`(()=>{const f=document.querySelector('#modal-form');f.elements.currentPassword.value=${JSON.stringify(password)};f.elements.newPassword.value=${JSON.stringify(nextPassword)};f.elements.recoveryCode.value=${JSON.stringify(recovery)};f.requestSubmit();})()`);await wait("!document.querySelector('#modal').open");password=nextPassword;
+ await evaluate("document.querySelector('#session').click();document.querySelector('#account-security').click()");await wait("document.querySelector('#security-actions')");await evaluate("[...document.querySelectorAll('#security-actions button')].find(b=>b.textContent==='Disable / reset authenticator').click()");
+ recovery=recoveryCodes.shift();await evaluate(`(()=>{const f=document.querySelector('#modal-form');f.elements.currentPassword.value=${JSON.stringify(password)};f.elements.recoveryCode.value=${JSON.stringify(recovery)};f.requestSubmit();})()`);
+ await wait("document.querySelector('#auth-content h1')?.textContent==='Set up two-factor authentication'");assert.equal((await store.read(s=>s.users.find(u=>u.email==='admin@example.test'))).totpEnabled,false);await completeBrowserAuthentication();
  const screens=['dashboard','donors','imports','tasks','outreach','reports','settings'];
  for(const screen of screens){
   await evaluate(`location.hash=${JSON.stringify(screen)}`);await wait(`document.title.startsWith(${JSON.stringify(({dashboard:'Overview',donors:'Donors',imports:'Import center',tasks:'Follow-ups',outreach:'Outreach',reports:'Reports',settings:'Settings'})[screen])})&&!document.querySelector('main [role="status"]')`);
@@ -39,7 +123,7 @@ try{
  }
  // Exercise the actual column-mapping UI with the sanitized sample's shape.
  await evaluate("location.hash='imports'");await wait("document.querySelector('#upload')");
- const importCsv='First name,Last name,Email,Secondary email,Amount,First payment date (America/Phoenix),Phone,Company,Board member,Transaction ID\nSynthetic,Browser Import,browser-import@example.test,secondary-browser@example.test,25,"10/19/2026, 8:23 PM",+16025550123,Synthetic Company,board-a@example.test,REQ-BROWSER';
+ const importCsv='First name,Last name,Email,Secondary email,Amount,First payment date (America/Phoenix),Phone,Company,Board member,Campaign,Transaction ID\nSynthetic,Browser Import,browser-import@example.test,secondary-browser@example.test,25,"10/19/2026, 8:23 PM",+16025550123,Synthetic Company,board-a@example.test,Synthetic Browser Campaign,REQ-BROWSER\nSynthetic,Browser Import,browser-import@example.test,secondary-browser@example.test,100,2026-11-01,+16025550123,Synthetic Company,board-a@example.test,Synthetic Browser Campaign,REQ-BROWSER-2';
  await evaluate(`(()=>{const form=document.querySelector('#upload');form.elements.namedItem('source').value='zeffy';const transfer=new DataTransfer();transfer.items.add(new File([${JSON.stringify(importCsv)}],'synthetic-sample.csv',{type:'text/csv'}));form.elements.namedItem('file').files=transfer.files;form.requestSubmit();})()`);
  await wait("document.querySelector('#mapping')");
  assert.equal(await evaluate("document.querySelector('#mapping').elements.namedItem('first_name').value"),'First name');
@@ -48,11 +132,13 @@ try{
  for(let retry=0;retry<2;retry++){
   await evaluate("(()=>{const form=document.querySelector('#mapping');form.elements.namedItem('review_currency').value='USD';form.elements.namedItem('review_status').value='completed';form.requestSubmit();})()");
   await wait("document.querySelector('#validated form')");
-  if(retry)assert.match(await evaluate("document.querySelector('#validated').textContent"),/1 existing transactions/);
-  await evaluate("(()=>{const form=document.querySelector('#validated form');const owner=form.querySelector('select[name^=\"owner:\"]');owner.value=[...owner.options].find(o=>o.textContent.includes('board-a@example.test')).value;form.requestSubmit();})()");
+  if(retry)assert.match(await evaluate("document.querySelector('#validated').textContent"),/2 existing transactions/);
+  await evaluate("(()=>{const form=document.querySelector('#validated form');for(const owner of form.querySelectorAll('select[name^=\"owner:\"]'))owner.value=[...owner.options].find(o=>o.textContent.includes('board-a@example.test')).value;for(const campaign of form.querySelectorAll('select[name^=\"campaign:\"]')){if(campaign.options[0].textContent==='Choose campaign decision'){campaign.value='create';const row=campaign.name.split(':')[1];form.elements.namedItem('campaign-approval:'+row).checked=true;}}form.requestSubmit();})()");
+
   await wait("document.querySelector('#validated h3')?.textContent==='Import confirmed'");
  }
  const imported=(await database.query("SELECT d.*,g.id AS gift_id FROM donors d JOIN donations g ON d.id=g.donor_id WHERE g.source='zeffy' AND g.external_transaction_id='REQ-BROWSER'")).rows;
+ assert.equal((await database.query("SELECT count(*)::int AS n FROM campaigns WHERE name='Synthetic Browser Campaign'")).rows[0].n,1);
  assert.equal(imported.length,1);assert.equal(imported[0].first_name,'Synthetic');assert.equal(imported[0].last_name,'Browser Import');assert.equal(imported[0].phone,'+16025550123');assert.equal(imported[0].company,'Synthetic Company');
  assert.equal((await database.query('SELECT count(*)::int AS n FROM outreach_messages WHERE donation_id=$1',[imported[0].gift_id])).rows[0].n,1);
  await evaluate("location.hash='settings'");await wait("[...document.querySelectorAll('main button')].some(b=>b.textContent==='Manage board member')");
@@ -88,8 +174,21 @@ try{
  const pdf=await cdp('Page.printToPDF',{printBackground:true});assert.ok(Buffer.from(pdf.data,'base64').length>1000);
  await writeFile(join(directory,'synthetic-funder.pdf'),Buffer.from(pdf.data,'base64'));
  assert.deepEqual(errors,[]);
- await evaluate("document.querySelector('#session').click()");await wait("document.querySelector('#session').textContent==='Sign in'");
- console.log(JSON.stringify({result:'PASS',realSql:true,secureBrowserCookie:true,screens:screens.length,donorProfile:true,funderPdfBytes:Buffer.from(pdf.data,'base64').length,browserExceptions:errors.length,accountRoleSafety:true,logout:true}));
+ await evaluate("document.querySelector('#session').click();document.querySelector('#sign-out').click()");await wait("!document.querySelector('#sign-in').hidden");await assertSignedOut();
+ assert.equal((await database.query('SELECT count(*)::int AS n FROM sessions')).rows[0].n,0);
+ await evaluate('history.back()');await evaluate('new Promise(resolve=>setTimeout(resolve,150))');await assertSignedOut();
+ await cdp('Page.reload');await wait("!document.querySelector('#sign-in').hidden");await assertSignedOut();
+ const adminRecoveryCodes=recoveryCodes;
+ await signIn(applicantPassword,'applicant-browser@example.test');await completeBrowserAuthentication('applicant-browser@example.test',applicantPassword);
+ assert.equal(await evaluate("document.querySelector('#account-role').textContent"),'Board member');
+ await evaluate("document.querySelector('#session').click();document.querySelector('#sign-out').click()");await wait("!document.querySelector('#sign-in').hidden");recoveryCodes=adminRecoveryCodes;
+ await signIn(password);await completeBrowserAuthentication();
+ // Revoke only the synthetic browser session and let a genuine 401 drive the UI.
+ await database.query('DELETE FROM sessions');
+ await evaluate("location.hash=location.hash==='#donors'?'tasks':'donors'");await wait("!document.querySelector('#sign-in').hidden");await assertSignedOut();
+ assert.equal(await evaluate("location.hash"),'#sign-in');
+
+ console.log(JSON.stringify({result:'PASS',realSql:true,secureBrowserCookie:true,screens:screens.length,donorProfile:true,funderPdfBytes:Buffer.from(pdf.data,'base64').length,browserExceptions:errors.length,accountRoleSafety:true,dedicatedSignIn:true,refreshPreservesMfa:true,backNavigationSafe:true,realTotp:true,signupApproval:true,mobileProfile:true,authenticatorReset:true,campaignReview:true,profileSaved:true,preferencesSaved:true,passwordChanged:true,recoveryRegenerated:true,profileMenu:true,sessionExpiry:true,logout:true}));
 }finally{
  websocket?.close();if(chrome){const exited=once(chrome,'exit');chrome.kill('SIGTERM');await exited;}
  if(server)await new Promise(resolve=>server.close(resolve));await database.close();await rm(directory,{recursive:true,force:true});

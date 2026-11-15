@@ -10,6 +10,15 @@
 </script>
 </head>
 <body>
+<p id="session-status" class="session-status" role="status">Checking your session…</p>
+<section id="sign-in" class="sign-in" role="main" aria-labelledby="sign-in-title" hidden>
+<div class="sign-in-card">
+<p class="sign-in-brand">ColorLoop <span>Coding in Color</span></p>
+<nav id="auth-tabs" class="auth-tabs" aria-label="Account access" hidden><button id="auth-sign-in" type="button">Sign In</button><button id="auth-sign-up" type="button">Sign Up</button></nav>
+<div id="auth-content"></div>
+</div>
+</section>
+<div id="app-shell" hidden>
 <a class="skip" href="#main">Skip to content</a>
 <aside>
 <a class="brand" href="#dashboard">ColorLoop<span>Coding in Color</span>
@@ -24,11 +33,23 @@
 <div class="workspace">
 <header>
 <span>DONOR & FUNDER RELATIONSHIPS</span>
-<button id="session" type="button">Sign in</button>
+<div id="account-menu" class="account-menu">
+<button id="session" type="button" aria-expanded="false" aria-controls="account-dropdown"><span id="session-name">Account</span> <span aria-hidden="true">▾</span></button>
+<div id="account-dropdown" class="account-dropdown" hidden>
+<div class="account-summary"><strong id="account-name"></strong><span id="account-email"></span><span id="account-role" class="badge"></span><span id="account-state"></span></div>
+<button id="my-profile" type="button">My Profile</button>
+<button id="account-security" type="button">Security</button>
+<button id="account-settings" type="button">Account Settings</button>
+<button id="sign-out" type="button">Sign Out</button>
+<p id="account-error" role="alert"></p>
+</div>
+</div>
 </header>
 <main id="main" tabindex="-1">
 </main>
 <footer>Coding in Color · Built for community</footer>
+</div>
+<div id="notice" role="status" aria-live="polite"></div>
 </div>
 <dialog id="modal" aria-labelledby="modal-title">
 <form id="modal-form">
@@ -43,6 +64,5 @@
 <button class="primary" type="submit">Save</button>
 </form>
 </dialog>
-<div id="notice" role="status" aria-live="polite"></div>
 </body>
 </html>

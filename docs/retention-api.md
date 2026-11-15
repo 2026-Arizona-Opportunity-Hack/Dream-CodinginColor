@@ -1,5 +1,7 @@
 # ColorLoop retention API and teammate handoff
 
+> Current account/MFA behavior: [AUTHENTICATION-IMPORTS.md](AUTHENTICATION-IMPORTS.md).
+
 > Current requirements-branch behavior and deployment gates: [CIC-REQUIREMENTS.md](CIC-REQUIREMENTS.md), [DASHBOARD-API.md](DASHBOARD-API.md), and [DEPLOYMENT-READINESS.md](DEPLOYMENT-READINESS.md). Status/counts below may describe earlier teammate branches.
 
 > Integration update: see [INTEGRATION.md](INTEGRATION.md) for current persistence,
@@ -37,7 +39,7 @@ scripts. For now, tests exercise handlers without starting a server.
 
 Bootstrap only through an operator's trusted Node process, using
 `bootstrapAdministrator(store, {name, email, password})` from `lib/auth.js`.
-It requires an empty account store; there is no public registration or default
+It requires an empty account store; public signup requires administrator approval and never creates a default
 password. The caller must use the same store instance as the handlers. Tests
 show the complete bootstrap pattern. Do not put real passwords in shell history.
 The persistent bootstrap mechanism and account recovery are still team decisions.

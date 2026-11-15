@@ -1,3 +1,4 @@
+import {signIn} from './auth-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, request, now, password } from './retention-support.js';
@@ -53,7 +54,7 @@ test('authenticated API journey covers relationships, retention, drafts, approva
   assert.equal((await call('tasks/reminders', 'POST', { kind: 'quarterly' })).body.data[0].status, 'draft');
   assert.equal((await call('retention/settings', 'PATCH', { inactivityMonths: 24 })).statusCode, 200);
   assert.equal((await call('retention/at-risk')).body.data.length, 0);
-  const memberSession = await login(store, { email: member.email, password }, 'member', now);
+  const memberSession = await signIn(store, { email: member.email, password }, 'member', now);
   assert.equal((await request(store, 'outreach/approve', 'POST', input, memberSession)).statusCode, 403);
   await call('roles', 'PATCH', { id: 'board-member', name: 'Restricted board', permissions: [] });
   assert.equal((await request(store, 'tasks', 'GET', {}, memberSession)).statusCode, 403);

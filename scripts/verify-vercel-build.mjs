@@ -4,10 +4,11 @@ import {readFile,readdir,access} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {workbook} from '../test-support/workbook.js';
+import {randomBytes} from 'node:crypto';
 const root=resolve(process.env.VERCEL_BUILD_OUTPUT||'.vercel/output');
 const config=JSON.parse(await readFile(join(root,'config.json'),'utf8'));
 const rewrite=config.routes.find(r=>r.dest?.startsWith('/api/router?route='));assert.ok(rewrite);
-const paths=['auth/login','auth/logout','auth/me','donors','donors/50000000-0000-4000-8000-000000000001','donors/50000000-0000-4000-8000-000000000001/donations','donations','imports/preview','imports/confirm','campaigns','custom-fields','assignments/members','tasks/reminders','outreach/handoff','outreach/confirm-manual','roles/retire','outcomes','donations/50000000-0000-4000-8000-000000000001','assignments/balance','jobs/prepare'];
+const paths=['auth/login','auth/logout','auth/me','auth/signup','auth/mfa/enroll','auth/mfa/confirm','auth/mfa/verify','account/profile','account/security','account/password','account/preferences','account/mfa/recovery','account/mfa/reset','account/mfa/admin-reset','account-requests','imports/presets','donors','donors/50000000-0000-4000-8000-000000000001','donors/50000000-0000-4000-8000-000000000001/donations','donations','imports/preview','imports/confirm','campaigns','custom-fields','assignments/members','tasks/reminders','outreach/handoff','outreach/confirm-manual','roles/retire','outcomes','donations/50000000-0000-4000-8000-000000000001','assignments/balance','jobs/prepare'];
 for(const path of paths){const match=new RegExp(rewrite.src).exec(`/api/${path}`);assert.ok(match,path);const dest=rewrite.dest.replace(/\$(\d+)/g,(_,n)=>match[+n]||'');assert.equal(new URL(dest,'https://synthetic.invalid').searchParams.get('route'),path);}
 async function walk(directory,prefix=''){
  const result=[];for(const entry of await readdir(join(directory,prefix),{withFileTypes:true})){const path=prefix?`${prefix}/${entry.name}`:entry.name;if(entry.isDirectory())result.push(...await walk(directory,path));else result.push(path);}return result;
@@ -19,7 +20,13 @@ await access(join(root,'functions/api/router.func/lib/import-worker.js'));
 const {parseImport}=await import(pathToFileURL(join(root,'functions/api/router.func/lib/import-parser.js')).href);
 const parsed=await parseImport({filename:'synthetic.xlsx',source:'synthetic-build',content_base64:workbook([['First name','Last name','Amount','First payment date (America/Phoenix)'],['Synthetic','Packaged','25','10/19/2026, 8:23 PM']]).toString('base64')});
 assert.deepEqual(parsed.rows[0].errors,[]);assert.equal(parsed.rows[0].data.donation.donation_date,'2026-10-19');
-for(const path of ['index.html','public/js/app.js','public/js/api.js','public/js/imports.js','public/js/account-forms.js','public/css/app.css'])await access(join(root,'static',path));
+// Execute the packaged security dependencies without any database or secret output.
+process.env.MFA_ENCRYPTION_KEY=randomBytes(32).toString('base64');
+const {enrollment,decryptTotp,authenticator}=await import(pathToFileURL(join(root,'functions/api/router.func/lib/totp.js')).href);
+const user={id:'synthetic-packaged-user',email:'packaged@example.test'},setup=await enrollment(user,new Date());
+assert.ok(setup.qr.startsWith('data:image/png;base64,'));
+assert.match(authenticator(decryptTotp(setup.ciphertext,user.id),user.email).generate(),/^\d{6}$/);
+for(const path of ['index.html','public/js/app.js','public/js/api.js','public/js/imports.js','public/js/account-forms.js','public/js/auth-ui.js','public/css/app.css'])await access(join(root,'static',path));
 const publicFiles=await walk(join(root,'static'));assert.ok(publicFiles.every(p=>p==='index.html'||p.startsWith('public/')));
 assert.ok(publicFiles.every(p=>!/(?:^|\/)\.env|\.sql$|(?:^|\/)(?:lib|db|node_modules)\//.test(p)));
-console.log(JSON.stringify({actualVercelBuild:true,functions:configs.length,rewrittenPathsVerified:paths.length,packagedXlsxWorkerExecuted:true,privateStaticAssets:false}));
+console.log(JSON.stringify({actualVercelBuild:true,functions:configs.length,rewrittenPathsVerified:paths.length,packagedXlsxWorkerExecuted:true,packagedTotpAndQrExecuted:true,privateStaticAssets:false}));

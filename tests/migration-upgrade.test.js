@@ -61,3 +61,25 @@ test('adding the compatibility migration to an already-integrated database leave
   assert.deepEqual(await db.transaction(unresolvedLegacyReferences),{boardAssignments:0,imports:0,merges:0});
  }finally{await db.close();}
 });
+
+test('account-security upgrade preserves populated users and gifts while gating legacy sessions',async()=>{
+ const db=await createIsolatedDatabase();
+ try{
+  await applyOriginals(db,['001_donor_core.sql','001a_preserve_legacy_user_references.sql','002_relationship_security.sql','003_reporting_views.sql','004_legacy_identity_resolution.sql','005_cic_requirements.sql']);
+  const userId=randomUUID(),sessionId=randomUUID();
+  const {digest,sessionFrom,requirePermission,contextKey}=await import('../lib/permissions.js');
+  const token='b'.repeat(64),hash=await hashPassword(password);
+  await db.query("INSERT INTO roles(id,name) VALUES ('administrator','Administrator')");
+  await db.query("INSERT INTO users(id,name,email,password_hash,role_id) VALUES ($1,'Synthetic pre-MFA operator','before-mfa@example.test',$2,'administrator')",[userId,hash]);
+  await db.query('INSERT INTO sessions(id,user_id,token_hash,csrf_token,csrf_hash,expires_at) VALUES ($1,$2,$3,$4,$5,$6)',[sessionId,userId,digest(token),'synthetic-csrf',digest('synthetic-csrf'),new Date(+now+3600000)]);
+  const donor=(await db.query("INSERT INTO donors(donor_type,display_name) VALUES ('person','Synthetic retained donor') RETURNING id")).rows[0].id;
+  await db.transaction(migrate);await db.transaction(migrate);
+  const stored=(await db.query('SELECT * FROM users WHERE id=$1',[userId])).rows[0];
+  assert.equal(stored.password_hash,hash);assert.equal(stored.totp_enabled,false);assert.deepEqual(stored.recovery_hashes,[]);assert.deepEqual(stored.preferences,{});
+  assert.equal((await db.query('SELECT id FROM donors WHERE id=$1',[donor])).rows[0].id,donor);
+  const store=createSqlStore(db),req={method:'GET',headers:{cookie:`__Host-colorloop=${token}`},[contextKey]:{store,now:()=>now}};
+  assert.equal((await store.read(s=>sessionFrom(s,req,now))).session.mfaVerifiedAt,null);
+  const res={setHeader(){},status(code){this.statusCode=code;return this;},json(value){this.body=value;}};
+  assert.equal(await requirePermission(req,res),null);assert.equal(res.statusCode,403);assert.equal(res.body.error.code,'MFA_REQUIRED');
+ }finally{await db.close();}
+});

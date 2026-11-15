@@ -67,6 +67,8 @@ delivery have not been performed. Provider delivery stays disabled.
 - Neon PostgreSQL, connection-bound transactions, additive SQL migrations
 - `csv-parse` and bounded `read-excel-file`/`fflate` XLSX parsing
 - Node scrypt, opaque durable sessions, CSRF tokens and server-side RBAC
+- Mandatory authenticator TOTP (`otpauth`), local QR generation (`qrcode`),
+  AES-256-GCM encrypted secrets and single-use hashed recovery codes
 - Development-only PGlite for isolated synthetic SQL tests and demos
 
 ## Run a safe synthetic demo
@@ -81,20 +83,34 @@ cp .env.example .env
 ```
 
 In your ignored `.env`, set `COLORLOOP_DEMO=true`, a local `DEMO_PASSWORD` of at
-least 15 characters, `APP_ORIGIN=https://localhost:3000`, and the TLS paths shown
+least 15 characters containing uppercase/lowercase letters, a number and a special
+character, `APP_ORIGIN=https://localhost:3000`, and the TLS paths shown
 in `.env.example`. Then run `npm run dev` and open https://localhost:3000.
 Accept the local development certificate warning for this synthetic demo only.
 Sign in as `admin@example.test` with your chosen demo password.
+Confirm your password, scan the private QR with an authenticator app, enter its
+six-digit code, and save your recovery codes offline. Enrollment is mandatory.
 
 Demo mode creates a fresh in-memory PostgreSQL database with synthetic accounts,
 donors and verified synthetic gifts each run. It never connects to Neon, even if
 `DATABASE_URL` exists. It is rejected in production/on Vercel. Secure cookies stay
 enabled. See the [demo walkthrough and integration guide](docs/INTEGRATION.md).
 
+When signed out, ColorLoop shows a dedicated sign-in page. The workspace stays
+hidden until the server verifies both password and second factor. The account
+dropdown shows your real name, email, role and status. My Profile saves your name;
+Security changes passwords, regenerates recovery codes and resets authenticators
+after password-and-factor reauthentication. Account Settings saves preferences
+and gives administrators account-request review and audited MFA recovery controls.
+Email and role edits remain administrator-managed.
+Session expiry returns to sign-in and clears the visible workspace.
+See [authentication and import operations](docs/AUTHENTICATION-IMPORTS.md).
+
 ## Neon setup and authentication
 
 Keep `COLORLOOP_DEMO=false` and omit `COLORLOOP_STORE=mock` for persistent use.
-Configure the server-only `DATABASE_URL` and exact HTTPS `APP_ORIGIN`. Review
+Configure the server-only `DATABASE_URL`, exact HTTPS `APP_ORIGIN`, and a stable
+private `MFA_ENCRYPTION_KEY` (32 random bytes encoded as base64). Review
 the ordered migrations and historical identity reconciliation before applying them. No command
 below has been run against a live database during integration:
 
@@ -105,7 +121,9 @@ below has been run against a live database during integration:
   Requires an empty account store; remove the bootstrap password afterward.
 
 Production session/retention storage fails closed when unavailable. There is no
-public registration or default production password. Donor-facing messages remain
+public self-activation or default production password. Sign Up creates a pending
+request; an administrator must approve a non-administrator role before sign-in
+and mandatory authenticator enrollment. Donor-facing messages remain
 unsent without an explicitly integrated provider.
 
 ## Verification
@@ -137,7 +155,8 @@ references without inventing accounts; existing migration checksums are unchange
 The shared API dispatcher reduces the frameworkless Vercel function count from
 33 to **five**, preserving existing URLs and methods. A real local Vercel CLI
 build and compiled-output verification pass; no hosted deployment was performed.
-Node is pinned to 22.x. No application dependency was added.
+Node is pinned to 22.x. The authentication feature adds the approved pinned
+`otpauth` and `qrcode` dependencies.
 
 ## CIC requirements implementation
 

@@ -1,21 +1,27 @@
 // Translate the existing CIC screens to the shared backend contracts.
-export function createApiClient(fetcher = globalThis.fetch) {
+export function createApiClient(fetcher = globalThis.fetch, {onUnauthorized=()=>{}} = {}) {
   let csrfToken = null;
+  let sessionVersion=0;
   const drafts = new Map(), fields = new Map(), donors = new Map();
   const uploads = new Map();
+  function clearSession(){csrfToken=null;drafts.clear();fields.clear();donors.clear();uploads.clear();sessionVersion++;}
   async function raw(path, method = 'GET', body) {
-    if (!['GET','HEAD'].includes(method) && path !== '/auth/login' && !csrfToken) await raw('/auth/me');
+    if (!['GET','HEAD'].includes(method) && !['/auth/login','/auth/signup'].includes(path) && !csrfToken) await raw('/auth/me');
+    const version=sessionVersion;
     const response = await fetcher(`/api${path}`, { method, credentials:'same-origin',
       headers:{'Content-Type':'application/json', ...(csrfToken ? {'X-CSRF-Token':csrfToken} : {})},
       body:body === undefined ? undefined : JSON.stringify(body) });
     const result = await response.json().catch(() => ({}));
+    if(version!==sessionVersion)throw Object.assign(new Error('This request belongs to an earlier session.'),{code:'STALE_SESSION'});
     if (!response.ok || result.error) {
       const error = new Error(result.error?.message || `Service unavailable (${response.status}).`);
       Object.assign(error,{status:response.status,code:result.error?.code});
-      if (response.status === 401) csrfToken = null;
+      if (response.status === 401) {clearSession();if(path!=='/auth/login')onUnauthorized();}
+      if(error.code==='MFA_REQUIRED'&&typeof window!=='undefined')window.dispatchEvent(new Event('colorloop:mfa-required'));
       throw error;
     }
     if (!Object.hasOwn(result,'data')) throw new Error('The server returned an unsupported response.');
+    if(path==='/auth/login'||path==='/auth/logout'||result.data?.sessionChanged)clearSession();
     if (result.data?.csrfToken) csrfToken = result.data.csrfToken;
     return result.data;
   }
@@ -36,7 +42,7 @@ export function createApiClient(fetcher = globalThis.fetch) {
   return async function api(path, {method='GET',body}={}) {
     const url = new URL(path,'https://local.invalid'), p = url.pathname;
     const segments = p.split('/').filter(Boolean).map(decodeURIComponent);
-    if (p === '/auth/me' || p === '/auth/login') { const result=await raw(p,method,body); return result.user; }
+    if (p === '/auth/me' || p === '/auth/login') { const result=await raw(p,method,body); return {...result.user,authentication:result.authentication}; }
     if (p === '/auth/logout') { const value=await raw(p,'POST',{}); csrfToken=null; drafts.clear();donors.clear();fields.clear();uploads.clear();return value; }
     if (p === '/board-members' && method === 'GET') return (await raw('/assignments/members')).map(u=>({...u,role:u.roleId}));
     if (segments[0] === 'board-members') {
@@ -135,7 +141,7 @@ export function createApiClient(fetcher = globalThis.fetch) {
       const upload=uploads.get(body.importId);if(!upload)throw new Error('Upload this file again.');
       const aliases={name:'display_name',donated_at:'donation_date'};
       const mapping=Object.fromEntries(Object.entries(body.mapping).filter(([,v])=>v).map(([k,v])=>[aliases[k]||k,v]));
-      const preview=await raw(p,'POST',{...upload,mapping,payment_review:body.payment_review||{}});
+      const preview=await raw(p,'POST',{...upload,source:body.source||upload.source,mapping,payment_review:body.payment_review||{}});
       return {...preview,importId:preview.batch_id,validRows:preview.counts.valid,
         existingTransactions:preview.rows.filter(r=>!r.errors.length&&r.matching?.reason==='existing_transaction').length,
         duplicates:preview.rows.filter(r=>r.matching?.candidates.length||r.possible_duplicate_gift),errors:preview.rows.flatMap(r=>r.errors)};
@@ -144,7 +150,9 @@ export function createApiClient(fetcher = globalThis.fetch) {
     return raw(path,method,body);
   };
 }
-export const api = createApiClient();
+export const api = createApiClient(globalThis.fetch,{onUnauthorized:()=>{
+  if(typeof window!=='undefined')window.dispatchEvent(new Event('colorloop:session-expired'));
+}});
 export const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const money = value => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(value||0));
 export const rows = data => Array.isArray(data)?data:data?.items||[];

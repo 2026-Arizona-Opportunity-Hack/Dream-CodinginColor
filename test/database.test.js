@@ -29,7 +29,7 @@ test('database services against isolated PostgreSQL engine', async (t) => {
       await tx(migrate); await tx(migrate); await tx(seed); await tx(seed);
       assert.equal((await query('SELECT count(*)::int AS n FROM donors')).rows[0].n, 2);
       assert.equal((await query('SELECT count(*)::int AS n FROM donations')).rows[0].n, 1);
-      actor.id = (await bootstrapAdministrator(createSqlStore(db), { name:'Synthetic SQL operator', email:'operator@example.test', password:'synthetic operator password' })).id;
+      actor.id = (await bootstrapAdministrator(createSqlStore(db), { name:'Synthetic SQL operator', email:'operator@example.test', password:'SyntheticOperator123!' })).id;
     });
     let donor;
     await t.test('create/edit/archive donor and preserve donation history', async () => {

@@ -1,3 +1,4 @@
+import {authenticator,decryptTotp} from '../lib/totp.js';
 import assert from 'node:assert/strict';
 import { request as httpsRequest } from 'node:https';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -14,7 +15,8 @@ import { buildStatic } from './build-static.js';
 
 const directory=await mkdtemp(join(tmpdir(),'colorloop-smoke-'));
 const database=await createIsolatedDatabase();let server;
-const password=randomBytes(24).toString('hex');
+const password='Aa1!'+randomBytes(24).toString('hex');
+process.env.MFA_ENCRYPTION_KEY=randomBytes(32).toString('base64');
 try {
   await database.transaction(migrate);
   const store=await initializeSyntheticDemo(database,password);
@@ -38,6 +40,12 @@ try {
   for(const privatePath of ['/lib/auth.js','/.env','/db/migrations/002_relationship_security.sql','/package.json'])assert.equal((await fetcher(privatePath)).status,404);
   await assert.rejects(api('/donors'),e=>e.status===401);
   const me=await api('/auth/login',{method:'POST',body:{email:'admin@example.test',password}});
+  assert.equal(me.authentication,'enrollment_required');
+  await assert.rejects(api('/donors'),e=>e.code==='MFA_REQUIRED');
+  await api('/auth/mfa/enroll',{method:'POST',body:{currentPassword:password}});
+  const enrolling=await store.read(s=>s.users.find(u=>u.email==='admin@example.test'));
+  const code=authenticator(decryptTotp(enrolling.totpPendingCiphertext,enrolling.id),enrolling.email).generate();
+  await api('/auth/mfa/confirm',{method:'POST',body:{code}});
   assert.equal(me.administrator,undefined); // Login returns a public account; /me supplies permissions.
   assert.ok((await api('/auth/me')).permissions.includes('reports.read'));
   const donor=await api('/donors',{method:'POST',body:{name:'Synthetic HTTP donor',email:'http@example.test'}});

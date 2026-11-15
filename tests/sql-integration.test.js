@@ -1,3 +1,4 @@
+import {signIn} from './auth-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createIsolatedDatabase } from '../lib/isolated-database.js';
@@ -16,7 +17,7 @@ test('normalized SQL persists accounts, relationships, approval, consent, import
     const store = createSqlStore(db);
     const admin = { ...await bootstrapAdministrator(store,{name:'Synthetic admin',email:'sql-admin@example.test',password},now),administrator:true };
     const member = await saveUser(store,admin,{name:'Synthetic member',email:'sql-member@example.test',password,roleId:'board-member',boardMember:true},now);
-    const session = await login(store,{email:admin.email,password},'test',now);
+    const session = await signIn(store,{email:admin.email,password},'test',now);
     const api = (route,method='GET',input={}) => request(store,route,method,input,session);
     const donor = await db.transaction(q=>createDonor(q,{donor_type:'person',display_name:'Synthetic donor',normalized_email:'synthetic@example.test',email_consent:true},admin.id));
     assert.equal(donor.assigned_board_member_id,member.id);
@@ -68,7 +69,7 @@ test('SQL claims, expiry, permissions, balanced assignment and immutable history
     assert.equal(created.filter(d=>d.assigned_board_member_id===a.id).length,4);
     assert.equal(created.filter(d=>d.assigned_board_member_id===b.id).length,4);
     await db.transaction(q=>addDonation(q,{donor_id:created[0].id,amount:'10.00',donation_date:'2025-01-01',currency:'USD',status:'completed',source:'synthetic'}));
-    const session=await login(store,{email:admin.email,password},'claims',now);
+    const session=await signIn(store,{email:admin.email,password},'claims',now);
     const draft=(await request(store,'outreach/drafts','POST',{donorId:created[0].id,templateId:'thank-you-email'},session)).body.data;
     const input={id:draft.id,revision:draft.revision};
     await request(store,'outreach/approve','POST',input,session);
@@ -77,7 +78,7 @@ test('SQL claims, expiry, permissions, balanced assignment and immutable history
     assert.ok(results.some(r=>r.statusCode===200));assert.equal(delivered,1);
     assert.equal((await db.query("SELECT count(*)::int AS n FROM outreach_delivery_history WHERE status='sent'")).rows[0].n,1);
     await assert.rejects(db.transaction(q=>q('DELETE FROM audit_events')),/append-only/);
-    const memberSession=await login(store,{email:a.email,password},'member',now);
+    const memberSession=await signIn(store,{email:a.email,password},'member',now);
     assert.equal((await request(store,'users','GET',{},memberSession)).statusCode,403);
     assert.equal((await request(store,'users','PATCH',{id:a.id,roleId:'administrator'},memberSession)).statusCode,403);
     const broken=createSqlStore({transaction(){throw new Error('private transport error');}});

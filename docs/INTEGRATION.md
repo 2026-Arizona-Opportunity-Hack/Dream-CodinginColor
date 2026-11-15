@@ -132,7 +132,7 @@ BOOTSTRAP_ADMIN=true node scripts/bootstrap-admin.js
 
 Bootstrap reads `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` privately from the
 server environment/ignored .env; it requires an empty account store. Remove the
-bootstrap password afterward. There is no public registration or default admin.
+bootstrap password afterward. Public account requests require administrator approval; no default administrator exists.
 Never place a real password in a command line, GitHub issue or screenshot.
 
 ## Environment
@@ -141,6 +141,7 @@ Never place a real password in a command line, GitHub issue or screenshot.
 | --- | --- |
 | `DATABASE_URL` | Server-only Neon PostgreSQL URL with TLS; normal persistence |
 | `APP_ORIGIN` | Exact HTTPS browser origin, including port locally; no trailing slash |
+| `MFA_ENCRYPTION_KEY` | Stable private 32-byte base64 key for persistent TOTP encryption; see [account operations](AUTHENTICATION-IMPORTS.md) |
 | `REPORTING_API_KEY` | Optional long random server-only bearer credential for `/api/v1/metrics` |
 | `COLORLOOP_DEMO` | Local isolated SQL demo only; false/absent on deployment |
 | `DEMO_PASSWORD` | Private local synthetic account password |

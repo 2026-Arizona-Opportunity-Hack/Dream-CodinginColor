@@ -1,4 +1,5 @@
 // All APIs share one origin and store; production remains Vercel/Neon.
+import {randomBytes} from 'node:crypto';
 import { createServer as httpServer } from 'node:http';
 import { createServer as httpsServer } from 'node:https';
 import { readFile } from 'node:fs/promises';
@@ -46,6 +47,7 @@ export async function startServer({ database, store, port=Number(process.env.POR
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   let database,store;
   if(process.env.COLORLOOP_DEMO==='true'){
+    process.env.MFA_ENCRYPTION_KEY=randomBytes(32).toString('base64');
     const {createIsolatedDatabase}=await import('../lib/isolated-database.js');
     const {migrate}=await import('../lib/database-setup.js');
     const {initializeSyntheticDemo}=await import('../lib/demo-data.js');

@@ -57,6 +57,7 @@ https://vercel.com/docs/plans/hobby
 | --- | --- |
 | DATABASE_URL | Authorized Neon target, TLS required; never browser-exposed |
 | APP_ORIGIN | Exact HTTPS site origin for login, Origin validation and CSRF |
+| MFA_ENCRYPTION_KEY | Stable server-only base64 encoding of 32 random bytes; protect and back up separately from the database |
 | REPORTING_API_KEY | Long random key for CIC's server-side aggregate dashboard |
 | CRON_SECRET | Separate random secret >=32 characters for draft/task preparation |
 | AUTOMATION_USER_ID | Genuine active, non-board preparation account with tasks.manage and outreach.write, or an explicitly authorized administrator |
@@ -83,7 +84,9 @@ Browser mutations continue to require session cookies, exact Origin and CSRF.
 4. Create active board accounts and balance unassigned donors. Create the genuine
    preparation account; grant only its required capabilities.
 5. Configure server-only variables. Review ordered checksum-protected migrations
-   001, 001a, 002, 003, 004, 005. Apply only to the separately approved target.
+   001, 001a, 002, 003, 004, 005, 006, 007. Apply only to the separately approved target.
+   Existing password-only sessions require new MFA enrollment. Rehearse recovery
+   and protect the stable encryption key before making MFA mandatory for CIC.
 6. Deploy an authorized Preview. Verify all existing/new API paths and methods,
    static private-path 404s, XLSX worker, sessions across instances, board isolation,
    CSRF/Origin rejection, and trusted Vercel client-IP behavior.

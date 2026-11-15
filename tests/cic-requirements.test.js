@@ -1,3 +1,4 @@
+import {signIn} from './auth-support.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createIsolatedDatabase} from '../lib/isolated-database.js';
@@ -100,7 +101,7 @@ test('required CIC workflows persist together in disposable PostgreSQL',async(t)
     const sent=await confirmManualSend(store,admin,{...args,reference:'Synthetic attestation only; no real message sent'},now);assert.equal(sent.status,'sent');
     await confirmManualSend(store,admin,{...args,reference:'Synthetic retry'},now);
     assert.equal((await db.query("SELECT count(*)::int AS n FROM outreach_delivery_history WHERE status='sent'")).rows[0].n,1);
-    const session=await login(store,{email:member.email,password},'192.0.2.1',now);
+    const session=await signIn(store,{email:member.email,password},'192.0.2.1',now);
     assert.equal((await request(store,'outreach/handoff','POST',args,session)).statusCode,403);
   });
   await t.test('reviewed evidence and multi-year giving preserve original gifts',async()=>{
@@ -109,7 +110,7 @@ test('required CIC workflows persist together in disposable PostgreSQL',async(t)
     await db.transaction(q=>addDonation(q,{donor_id:donorId,amount:'1000000.00',donation_date:'2027-07-01',source:'synthetic',external_transaction_id:'CIC-MILLION',currency:'USD',status:'completed'}));
     assert.equal((await db.query('SELECT count(*)::int AS n FROM donations WHERE donor_id=$1',[donorId])).rows[0].n,2);
     assert.doesNotThrow(()=>parseFilters({from:'2026-01-01',to:'2027-12-31'},{singleYear:false}));
-    const session=await login(store,{email:admin.email,password},'192.0.2.3',now);
+    const session=await signIn(store,{email:admin.email,password},'192.0.2.3',now);
     const sql=async(strings,...params)=>(await db.query(strings.reduce((s,p,i)=>s+(i?`$${i}`:'')+p,''),params)).rows;
     const req={method:'GET',query:{donorId,fullHistory:'true'},headers:{cookie:`__Host-colorloop=${session.token}`},[contextKey]:{store,sql,now:()=>now}};
     const res={setHeader(){},status(n){this.statusCode=n;return this;},json(body){this.body=body;this.headersSent=true;return this;}};
@@ -126,7 +127,7 @@ test('required CIC workflows persist together in disposable PostgreSQL',async(t)
   await t.test('role retirement reassigns genuine users, revokes sessions and rejects inactive grants',async()=>{
     const role=await saveRole(store,admin,{name:'Synthetic retiring role',permissions:['donors.read']},now);
     const user=await saveUser(store,admin,{name:'Synthetic reassigned account',email:'retire@example.test',password,roleId:role.id},now);
-    await login(store,{email:user.email,password},'192.0.2.2',now);
+    await signIn(store,{email:user.email,password},'192.0.2.2',now);
     await retireRole(store,admin,{id:role.id,replacementRoleId:'board-member'},now);
     assert.equal((await db.query('SELECT role_id FROM users WHERE id=$1',[user.id])).rows[0].role_id,'board-member');
     assert.equal((await db.query('SELECT count(*)::int AS n FROM sessions WHERE user_id=$1',[user.id])).rows[0].n,0);
@@ -137,7 +138,7 @@ test('required CIC workflows persist together in disposable PostgreSQL',async(t)
     const outside=await db.transaction(q=>createDonor(q,{donor_type:'person',display_name:'Synthetic Private Other Donor'},admin.id));
     assert.equal(outside.assigned_board_member_id,other.id);
     await saveRole(store,admin,{id:'board-member',name:'Board member',permissions:['donors.read','donors.write','donations.write','activities.write','tasks.manage','outreach.write','reports.read']},now,true);
-    const session=await login(store,{email:member.email,password},'192.0.2.10',now);
+    const session=await signIn(store,{email:member.email,password},'192.0.2.10',now);
     const router=createRouter({database:db,store,origin:'https://colorloop.example',now:()=>now});
     const call=async(route,method='GET',body={},query={},auth=session)=>{
       const req={method,query:{...query,route},body,headers:{cookie:`__Host-colorloop=${auth.token}`,origin:'https://colorloop.example','content-type':'application/json','x-csrf-token':auth.csrfToken}};
@@ -145,7 +146,7 @@ test('required CIC workflows persist together in disposable PostgreSQL',async(t)
       await router(req,res);return res;
     };
     const generalBoard=await saveUser(store,admin,{name:'Synthetic board role without assignment eligibility',email:'general-board@example.test',password,roleId:'board-member',boardMember:false},now);
-    const generalSession=await login(store,{email:generalBoard.email,password},'192.0.2.11',now);
+    const generalSession=await signIn(store,{email:generalBoard.email,password},'192.0.2.11',now);
     assert.equal((await call('donors','GET',{},{},generalSession)).body.data.length,0);
     assert.equal((await call(`donors/${outside.id}`,'GET',{},{},generalSession)).statusCode,403);
     const listing=await call('donors');assert.equal(listing.statusCode,200);assert.ok(listing.body.data.every(d=>d.id!==outside.id));

@@ -26,7 +26,7 @@ test('TEST-001 through TEST-003 remain unique across import retries and reupload
   try {
     await db.transaction(migrate);
     const actor = await bootstrapAdministrator(createSqlStore(db), {
-      name: 'Synthetic importer', email: 'importer@example.test', password: 'synthetic importer password',
+      name: 'Synthetic importer', email: 'importer@example.test', password: 'SyntheticImporter123!',
     });
     const preview = (content) => db.transaction(q => previewImport(q, upload(content), actor));
     const confirm = (batch, decisions) => db.transaction(q => confirmImport(q, { batch_id: batch.batch_id, decisions }, actor));

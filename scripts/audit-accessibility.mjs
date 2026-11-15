@@ -1,5 +1,6 @@
 // Real Lighthouse against the authenticated synthetic application; no fixture API or Neon.
 import assert from 'node:assert/strict';
+import {authenticator,decryptTotp} from '../lib/totp.js';
 import {mkdtemp,readFile,writeFile,mkdir,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
@@ -17,7 +18,7 @@ const output=resolve(process.env.A11Y_OUTPUT||'artifacts/accessibility');await m
 const directory=await mkdtemp(join(tmpdir(),'colorloop-lighthouse-'));const database=await createIsolatedDatabase();
 let server,chrome,websocket;
 try{
- await database.transaction(migrate);const password=randomBytes(24).toString('hex'),store=await initializeSyntheticDemo(database,password);
+ await database.transaction(migrate);process.env.MFA_ENCRYPTION_KEY=randomBytes(32).toString('base64');const password='Aa1!'+randomBytes(24).toString('hex'),store=await initializeSyntheticDemo(database,password);
  execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=localhost','-keyout',join(directory,'tls.key'),'-out',join(directory,'tls.crt')],{stdio:'ignore'});
  server=await startServer({database,store,port:0,origin:'https://localhost:0',tls:{key:await readFile(join(directory,'tls.key')),cert:await readFile(join(directory,'tls.crt'))}});
  const base=`https://localhost:${server.address().port}`;
@@ -30,7 +31,10 @@ try{
  await send('Page.enable',{},sessionId);await send('Runtime.enable',{},sessionId);
  const evaluate=async expression=>{const result=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true},sessionId);if(result.exceptionDetails)throw new Error(result.exceptionDetails.text);return result.result.value;};
  await evaluate("new Promise(resolve=>{const poll=()=>document.querySelector('#session')?resolve():setTimeout(poll,50);poll();})");
- const signedIn=await evaluate(`(async()=>{const {api}=await import('/public/js/api.js');await api('/auth/login',{method:'POST',body:{email:'admin@example.test',password:${JSON.stringify(password)}}});return !!(await api('/auth/me')).id;})()`);assert.equal(signedIn,true);
+ await evaluate(`(async()=>{const {api}=await import('/public/js/api.js');await api('/auth/login',{method:'POST',body:{email:'admin@example.test',password:${JSON.stringify(password)}}});await api('/auth/mfa/enroll',{method:'POST',body:{currentPassword:${JSON.stringify(password)}}});})()`);
+ const user=await store.read(s=>s.users.find(u=>u.email==='admin@example.test'));
+ const code=authenticator(decryptTotp(user.totpPendingCiphertext,user.id),user.email).generate();
+ const signedIn=await evaluate(`(async()=>{const {api}=await import('/public/js/api.js');await api('/auth/mfa/confirm',{method:'POST',body:{code:${JSON.stringify(code)}}});return (await api('/auth/me')).authentication;})()`);assert.equal(signedIn,'authenticated');
  const summary={syntheticOnly:true,measuredAt:new Date().toISOString(),lighthouseVersion:null,results:[]};
  for(const screen of ['dashboard','donors','imports','tasks','outreach','reports','settings']){
   const result=await lighthouse(`${base}/#${screen}`,{port:Number(new URL(address).port),onlyCategories:['accessibility'],output:['json','html'],disableStorageReset:true,logLevel:'error'});
