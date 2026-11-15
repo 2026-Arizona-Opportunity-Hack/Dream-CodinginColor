@@ -146,6 +146,10 @@ See [integration setup, security, demo and limitations](docs/INTEGRATION.md),
 [retention API details](docs/retention-api.md). Earlier teammate handoffs describe
 branch-specific contracts; the integration guide takes precedence.
 
+Repeated imports with the same source and transaction IDs reuse existing gifts.
+The import preview distinguishes valid rows from existing transactions; its
+`possible_duplicate_gift` flag covers amount/date review for missing IDs only.
+
 Unverified currency/payment status is stored as unknown and excluded from verified
 radar/reporting. Existing email addresses never imply contact consent. Funder
 outcomes require explicit evidence; none are inferred from gifts. PDF export uses

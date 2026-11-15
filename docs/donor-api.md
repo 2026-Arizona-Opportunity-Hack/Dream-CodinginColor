@@ -93,6 +93,13 @@ organization. Custom field strings are not implicitly coerced to numbers/boolean
 Preview returns batch_id, expiry, headers/mapping, validation counts, and each
 source row number with normalized data, matching candidate UUIDs, reason, and
 warnings/errors. A matching UUID refers to `/api/donors/:id` for authorized review.
+`matching.reason = "existing_transaction"` identifies a known source+transaction
+ID. Such rows normally have `possible_duplicate_gift = false`: that flag is only
+the donor+amount+date heuristic for gifts **without** transaction IDs. It is not
+the outcome of transaction-ID deduplication. Confirmation returns `result =
+"duplicate"` and the original donation ID for an exact existing gift; changed
+gift data fails with a conflict. The screen counts valid rows and existing
+transactions separately, since valid does not mean new.
 No raw file is retained. Invalid rows block the whole confirmation: correct the
 file and upload a new preview. Expiry is 24 hours.
 

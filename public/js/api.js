@@ -134,7 +134,8 @@ export function createApiClient(fetcher = globalThis.fetch) {
       const aliases={name:'display_name',donated_at:'donation_date'};
       const mapping=Object.fromEntries(Object.entries(body.mapping).filter(([,v])=>v).map(([k,v])=>[aliases[k]||k,v]));
       const preview=await raw(p,'POST',{...upload,mapping});
-      return {...preview,importId:preview.batch_id,newTransactions:preview.counts.valid,
+      return {...preview,importId:preview.batch_id,validRows:preview.counts.valid,
+        existingTransactions:preview.rows.filter(r=>!r.errors.length&&r.matching?.reason==='existing_transaction').length,
         duplicates:preview.rows.filter(r=>r.matching?.candidates.length||r.possible_duplicate_gift),errors:preview.rows.flatMap(r=>r.errors)};
     }
     if (p === '/imports/confirm') return raw(p,'POST',{batch_id:body.importId,decisions:body.decisions||{}});
