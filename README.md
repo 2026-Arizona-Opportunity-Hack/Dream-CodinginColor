@@ -60,6 +60,18 @@ The full stack has been tested with an isolated PostgreSQL engine and real local
 HTTPS/Chrome. Live Neon migrations, hosted Vercel deployment, and real message
 delivery have not been performed. Provider delivery stays disabled.
 
+## Mentor UX update
+
+The `feature/mentor-ux` frontend follows the supplied mentor PDF: an actionable
+Today queue, linkable donor profiles, donor-specific quick actions, readable
+import review, explicit outreach approval/handoff, and mobile bottom navigation.
+The `integration/mentor-final` branch combines backend `85b1985` and frontend
+`8df801d`. No merge into main or deployment has been performed. See the
+[final integration results](docs/MENTOR-FINAL-INTEGRATION.md).
+See the [recommendation matrix and validation](docs/MENTOR-UX-IMPLEMENTATION.md)
+and [Laptop 2 handoff](docs/MENTOR-UX-HANDOFF.md). Local validation measured
+Lighthouse accessibility 100 on 19 views and passed 75 responsive/keyboard views.
+
 ## Tech stack
 
 - Vanilla HTML/CSS/JavaScript with CIC branding and keyboard-accessible dialogs

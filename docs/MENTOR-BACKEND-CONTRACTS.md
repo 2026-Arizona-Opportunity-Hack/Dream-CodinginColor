@@ -1,5 +1,9 @@
 # Mentor backend handoff — Laptop 1
 
+Integration update: both mentor branches are combined on `integration/mentor-final`.
+See [final integration results](MENTOR-FINAL-INTEGRATION.md) for current validation.
+The branch-specific history below is retained for reference.
+
 This backend work starts at approved `main` commit `adeac28` and belongs to
 `feature/mentor-backend`. Frontend HTML, CSS, navigation and browser modules are
 unchanged. No mentor PDF was available in the repository or supplied attachments;

@@ -1,6 +1,6 @@
 {
   "syntheticOnly": true,
-  "measuredAt": "2026-11-15T01:06:07.814Z",
+  "measuredAt": "2026-11-15T08:25:53.025Z",
   "lighthouseVersion": "13.0.1",
   "results": [
     {
@@ -35,6 +35,66 @@
     },
     {
       "screen": "settings",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "donor-giving",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "donor-timeline",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "donor-outreach",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "donor-tasks",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "donor-details",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "duplicate-review",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "outreach-attention",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "outreach-history",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "funder-packet",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "imports-map",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "imports-review",
+      "score": 100,
+      "failures": []
+    },
+    {
+      "screen": "imports-confirm",
       "score": 100,
       "failures": []
     }

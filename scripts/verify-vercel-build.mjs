@@ -1,3 +1,4 @@
+import {STATIC_FILES} from './build-static.js';
 // Validate actual Vercel CLI output, not a hand-written vercel.json routing model.
 import assert from 'node:assert/strict';
 import {readFile,readdir,access} from 'node:fs/promises';
@@ -26,7 +27,7 @@ const {enrollment,decryptTotp,authenticator}=await import(pathToFileURL(join(roo
 const user={id:'synthetic-packaged-user',email:'packaged@example.test'},setup=await enrollment(user,new Date());
 assert.ok(setup.qr.startsWith('data:image/png;base64,'));
 assert.match(authenticator(decryptTotp(setup.ciphertext,user.id),user.email).generate(),/^\d{6}$/);
-for(const path of ['index.html','public/js/app.js','public/js/api.js','public/js/imports.js','public/js/account-forms.js','public/js/auth-ui.js','public/js/ui.js','public/js/import-review.js','public/css/app.css'])await access(join(root,'static',path));
+for(const path of STATIC_FILES)assert.equal(await readFile(join(root,'static',path),'utf8'),await readFile(new URL('../'+path,import.meta.url),'utf8'),`Packaged browser asset is current: ${path}`);
 const {createRouter}=await import(pathToFileURL(join(root,'functions/api/router.func/lib/api-router.js')).href);
 const router=createRouter();for(const [path,status] of [['v1/openapi',200],['v1/follow-ups',401]]){const res={setHeader(){},status(n){this.statusCode=n;return this;},json(v){this.body=v;this.headersSent=true;return this;}};await router({method:'GET',query:{route:path},headers:{}},res);assert.equal(res.statusCode,status);if(status===200)assert.equal(res.body.openapi,'3.1.1');}
 const publicFiles=await walk(join(root,'static'));assert.ok(publicFiles.every(p=>p==='index.html'||p.startsWith('public/')));
