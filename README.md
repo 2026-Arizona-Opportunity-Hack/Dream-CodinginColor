@@ -221,7 +221,10 @@ Verified gifts prepare idempotent thank-you drafts. Daily authenticated preparat
 creates separate quarterly donor updates/tasks, board assignment summaries and
 overdue reminders. Production scheduling needs a real preparation account and
 server-only `CRON_SECRET`/`AUTOMATION_USER_ID`. It sends no messages by default;
-separately activated email policies can process approved mail and board reminders.
+unattended sending also requires `EMAIL_CRON_ENABLED=true` and separately approved
+email policies. Keep that switch false and live donor automation OFF until
+activation is explicitly approved. See the [email deployment and demo handoff](docs/EMAIL-DEPLOYMENT-HANDOFF.md)
+for recipient routing, Vercel settings, Phoenix scheduling and verified tests.
 
 Manual handoff locks an approved, consent-checked revision and records `handed_off`.
 A separate evidence-backed human attestation records a human-reported send. No

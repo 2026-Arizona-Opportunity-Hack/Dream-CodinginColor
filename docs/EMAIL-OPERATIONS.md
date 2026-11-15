@@ -1,5 +1,9 @@
 # Approved email delivery and board reminders
 
+Current routing evidence, safe scheduler activation and exact Vercel configuration:
+[Email deployment handoff](EMAIL-DEPLOYMENT-HANDOFF.md). Unattended sending now
+additionally requires `EMAIL_CRON_ENABLED=true`; its default remains OFF.
+
 Real Resend REST transport is implemented. Local credentials and an operator-owned
 test inbox are configured; read-only provider requests confirm a sending-only key.
 That key cannot retrieve receipts, so delivery must currently be checked in the
@@ -75,6 +79,7 @@ the policy reason field:
 | `APP_ORIGIN` | Exact HTTPS ColorLoop origin, used in authorized task links |
 | `CRON_SECRET` | Existing random preparation-job secret, at least 32 characters |
 | `AUTOMATION_USER_ID` | Existing active staff/service account with `tasks.manage`, `outreach.write` and `outreach.send` |
+| `EMAIL_CRON_ENABLED` | Keep `false`; separate server opt-in for unattended sends after explicit approval |
 | `CIC_DONOR_AUTOMATION_APPROVED` | Leave `false` until CIC approves live activation |
 | `CIC_EMAIL_APPROVAL_REFERENCE` | Non-secret CIC approval reference, required for live donor automation |
 
@@ -128,7 +133,11 @@ This rehearsal is not an installed recurring scheduler or a hosted cron test.
 The existing protected `/api/jobs/prepare` job prepares quarterly updates/tasks and
 overdue drafts, then processes enabled approved email. Vercel's daily schedule is
 **16:00 UTC / 09:00 America/Phoenix**. Hosted invocation has not been verified.
-An administrator can explicitly process the queue between daily runs.
+Hobby execution can occur within the scheduled hour. `EMAIL_CRON_ENABLED` must be
+explicitly enabled in addition to the existing transport and approved policies
+before this job can send anything. An administrator can separately confirm queue
+processing between runs. Hosted reminders require the deployed `APP_ORIGIN` and
+reject localhost links, including previously approved links from another origin.
 
 Board windows are once when approaching (within three calendar days), once on the
 due day, and once per overdue week while still open. Keys include task, assignee,
