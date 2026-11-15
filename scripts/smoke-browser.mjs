@@ -213,9 +213,10 @@ try{
   await evaluate("location.hash='donors'");await wait("document.querySelector('#donor-search')");
   // Create a real synthetic donor without an initial gift.
   await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Add donor').click()");await wait("document.querySelector('#modal').open");
-  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.name.value='Synthetic UX manual entry';f.elements.email.value='ux-manual@example.test';f.elements.notes.value='Synthetic independently reviewed identity source';f.requestSubmit();})()");
+  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.name.value='Synthetic UX manual entry';f.elements.email.value='ux-manual@example.test';f.elements.notes.value='Synthetic independently reviewed identity source';f.elements.company.value='Synthetic Employer';f.elements.organization_name.value='Synthetic Partner';f.elements.contact_person.value='Synthetic Contact';f.requestSubmit();})()");
   await wait("!document.querySelector('#modal').open&&document.querySelector('main h1')?.textContent==='Synthetic UX manual entry'");
   const manualId=(await database.query("SELECT id FROM donors WHERE normalized_email='ux-manual@example.test'")).rows[0].id;
+  assert.deepEqual((await database.query('SELECT donor_type,company,organization_name,contact_person FROM donors WHERE id=$1',[manualId])).rows[0],{donor_type:'person',company:'Synthetic Employer',organization_name:'Synthetic Partner',contact_person:'Synthetic Contact'});
   await evaluate("[...document.querySelectorAll('.profile-actions button')].find(b=>b.textContent==='Record gift').click()");await wait("document.querySelector('#modal').open&&document.querySelector('#modal-title').textContent==='Record a gift'");
   await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.amount.value='25.75';f.elements.currency.value='USD';f.elements.status.value='completed';f.elements.donated_at.value='2026-11-13';f.elements.source.value='cash';f.elements.notes.value='Synthetic cash gift with verified receipt';f.requestSubmit();})()");
   await wait("document.querySelector('#gift-review')&&!document.querySelector('#gift-review').hidden");

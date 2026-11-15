@@ -32,3 +32,23 @@ configuration and main remain untouched. No live sending or deployment is implie
 
 Existing human approval, consent, MFA, RBAC, CSRF and manual handoff remain required.
 Live donor automation must stay disabled until CIC approves activation.
+
+## Milestone 2 — organization and contact-person data
+
+- `organization_name`, `company` (employer), and `contact_person` are independent
+  donor fields in forms, details, merge comparison, API validation and CSV/XLSX
+  mapping. `Contact person` no longer silently means board owner. Explicit
+  `Contact person (board member)` and `Board contact` still map to ownership.
+- Explicit Person/Organization source classifications are retained. Company alone
+  never establishes Organization. Names such as Opportunity Hack produce a
+  reviewable suggestion; the server requires the review decision and records it.
+  Add Donor offers a button to accept a suggestion; it never changes type silently.
+- Migration `008_organization_contacts.sql` adds two nullable columns without
+  backfilling guesses or changing historical values. Test/demo migrations use only
+  disposable databases. **008 has not been applied to shared Neon.**
+- A new release must apply reviewed migration 008 before using the new fields on
+  persistent storage. Existing donor writes that omit these fields remain compatible.
+
+Organization checkpoint validation: 36 focused tests passed, zero failed; the static
+build passed. Coverage includes independent CSV/XLSX fields, approved suggestions,
+explicit type preservation and populated 007 → 008 upgrade without historical changes.

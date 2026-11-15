@@ -183,7 +183,8 @@ See [backend contracts and Laptop 1 integration](docs/MENTOR-BACKEND-CONTRACTS.m
 The [OpenAPI 3.1 specification](docs/openapi-readonly.json) is also available at
 `GET /api/v1/openapi`. The frontend must submit the server preview ID and explicit
 identity confirmation before a merge; the old client-only preview cannot authorize
-one. No new migration or environment variable is required for these backend changes.
+one. Organization/contact-person fields require additive migration 008; review it
+before applying to a shared database. No shared migration runs automatically.
 
 See the [requirements matrix and four-minute demo](docs/CIC-REQUIREMENTS.md),
 [dashboard API integration](docs/DASHBOARD-API.md), and

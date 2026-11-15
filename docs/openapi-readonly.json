@@ -2292,6 +2292,20 @@
               "string",
               "null"
             ]
+          },
+          "organization_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
+          },
+          "contact_person": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
           }
         },
         "required": [
