@@ -1,4 +1,5 @@
 const normalized=value=>String(value||'').trim().toLowerCase();
+export const recognizedOwners=rows=>rows.filter(r=>r.data?.board_contact&&r.board_candidates?.length===1).map(r=>({row:r.row_number,owner:r.board_candidates[0].id}));
 export function campaignGroups(rows){
  const groups=new Map();
  for(const row of rows){if(!row.campaign_review)continue;const key=normalized(row.campaign_review.name);if(!groups.has(key))groups.set(key,{index:groups.size,name:row.campaign_review.name.trim(),rows:[]});groups.get(key).rows.push(row);}
@@ -22,7 +23,8 @@ export function reviewedImportRows(preview,values,groups=campaignGroups(preview.
   const donor=values[`donor:${row.row_number}`],owner=values[`owner:${row.row_number}`];let campaign;
   if(row.data.board_contact&&!owner)throw new Error(`Review ownership for row ${row.row_number}.`);
   if(row.campaign_review){const group=groups.find(g=>g.rows.includes(row));const override=values[`campaign-row:${row.row_number}`];campaign=override?campaignChoice(values,`campaign-row:${row.row_number}`,row.campaign_review.name,row.campaign_review.status==='matched'):campaignChoice(values,`campaign:${group.index}`,group.name,group.matched);}
-  review[row.row_number]={...(campaign?{campaign}:{}),...(donor?{donor_id:donor}:{}),...(values[`duplicate:${row.row_number}`]?{allow_possible_duplicate:true}:{}),...(owner==='balanced'?{use_balanced_assignment:true}:owner?{assignee_id:owner}:{})};
+  const donorType=values[`type:${row.row_number}`];if(row.data.organization_suggestion&&!['person','organization'].includes(donorType))throw new Error(`Review donor type for row ${row.row_number}.`);
+  review[row.row_number]={...(donorType?{donor_type:donorType}:{}),...(campaign?{campaign}:{}),...(donor?{donor_id:donor}:{}),...(values[`duplicate:${row.row_number}`]?{allow_possible_duplicate:true}:{}),...(owner==='balanced'?{use_balanced_assignment:true}:owner?{assignee_id:owner}:{})};
  }
  return review;
 }

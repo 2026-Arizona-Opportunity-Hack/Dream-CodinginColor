@@ -58,7 +58,7 @@ uses the shared API contracts with secure cookies and CSRF tokens.
 
 The full stack has been tested with an isolated PostgreSQL engine and real local
 HTTPS/Chrome. Live Neon migrations, hosted Vercel deployment, and real message
-delivery have not been performed. Provider delivery stays disabled.
+delivery have not been performed. Provider delivery stays disabled by default.
 
 ## Mentor UX update
 
@@ -172,13 +172,37 @@ Node is pinned to 22.x. The authentication feature adds the approved pinned
 
 ## CIC requirements implementation
 
+The [final readiness checkpoints](docs/final-readiness-checklist.md) track the
+remaining approved improvements. Add Donor can optionally record an initial
+cash/check/offline gift in the same transaction, using the existing validated gift
+service and retry protection. Leaving the amount blank creates only the donor.
+Organization, employer and human contact are separate fields. Import classification
+suggestions require review; equal donor workloads rotate fairly, and unambiguous
+board contacts can be approved together.
+
+Optional [real email delivery and board reminders](docs/EMAIL-OPERATIONS.md) reuse
+the approved-draft and delivery-history workflow. Outreach's **Approve & Send Email**
+action binds human review to the exact donor recipient and message revision, then
+immediately sends through Resend. History distinguishes provider acceptance from
+confirmed delivery; manual handoff remains an optional fallback. Transport and activation policies
+are OFF by default. Local/demo mail requires real verified test inboxes; synthetic
+addresses are blocked. Resend accepted one explicitly approved test thank-you and
+one board reminder; duplicate queue/job runs made no additional send requests.
+The operator confirmed both in the Inbox and both Delivered in Resend; details
+are recorded in the email operations guide. Migrations 008–010 are additive and
+require review before shared application; no shared migration runs
+automatically. SMS remains a manual handoff. Live donor activation requires CIC approval.
+Vercel function bundles explicitly exclude local `.env*` files; the compiled-output
+verifier checks this in addition to the public static allowlist.
+
 Backend support for the mentor workflows includes guarded manual donor/gift entry,
 server-issued merge previews, confirmed source aliases, and paginated read APIs.
 See [backend contracts and Laptop 1 integration](docs/MENTOR-BACKEND-CONTRACTS.md).
 The [OpenAPI 3.1 specification](docs/openapi-readonly.json) is also available at
 `GET /api/v1/openapi`. The frontend must submit the server preview ID and explicit
 identity confirmation before a merge; the old client-only preview cannot authorize
-one. No new migration or environment variable is required for these backend changes.
+one. Organization/contact-person fields require additive migration 008; review it
+before applying to a shared database. No shared migration runs automatically.
 
 See the [requirements matrix and four-minute demo](docs/CIC-REQUIREMENTS.md),
 [dashboard API integration](docs/DASHBOARD-API.md), and
@@ -199,11 +223,16 @@ responsive tables and contextual empty states support the mentor demo. See the
 Verified gifts prepare idempotent thank-you drafts. Daily authenticated preparation
 creates separate quarterly donor updates/tasks, board assignment summaries and
 overdue reminders. Production scheduling needs a real preparation account and
-server-only `CRON_SECRET`/`AUTOMATION_USER_ID`; it never sends messages.
+server-only `CRON_SECRET`/`AUTOMATION_USER_ID`. It sends no messages by default;
+unattended sending also requires `EMAIL_CRON_ENABLED=true` and separately approved
+email policies. Keep that switch false and live donor automation OFF until
+activation is explicitly approved. See the [email deployment and demo handoff](docs/EMAIL-DEPLOYMENT-HANDOFF.md)
+for recipient routing, Vercel settings, Phoenix scheduling and verified tests.
 
 Manual handoff locks an approved, consent-checked revision and records `handed_off`.
 A separate evidence-backed human attestation records a human-reported send. No
-real email/text delivery or provider integration has been performed. Communication
+SMS provider delivery has been verified. The optional Resend rehearsal and its
+approval gates are described above. Communication
 history and gifts appear on the donor profile. Board accounts are restricted on
 the backend to their assigned donors and related work. Role retirement reassigns
 accounts, revokes sessions and retains audit/history.

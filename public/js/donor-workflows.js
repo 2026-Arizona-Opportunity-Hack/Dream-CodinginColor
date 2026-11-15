@@ -1,6 +1,6 @@
 import {api,esc,rows} from './api.js';
 import {mountDonorSelector,displayMoney,displayDate} from './ui.js';
-import {profileUrl} from './donor-view.js';
+import {profileUrl,localDay} from './donor-view.js';
 
 // These forms reuse the existing API adapter and shared accessible dialog.
 export function donorWorkflows(ctx){
@@ -11,12 +11,21 @@ export function donorWorkflows(ctx){
  async function editDonor(id){
   requirePermission('donors.write');const saveKey=`donor-${crypto.randomUUID()}`;const donor=id?await api(`/donors/${encodeURIComponent(id)}`):null;
   const owners=!id&&can('assignments.manage')?rows(await api('/board-members')).filter(m=>m.active!==false):[];
+  const campaigns=!id&&can('donations.write')?rows(await api('/campaigns')).filter(c=>!c.archived):[];
+  const initialGift=!id&&can('donations.write')?'<fieldset><legend>Optional initial donation</legend><p>Leave the amount blank to create a donor without a gift.</p>'+optional('initial_amount','Initial donation amount','number')+optional('initial_date','Gift date','date',localDay())+optional('initial_currency','Currency (verify from the payment record)')+select('initial_status','Payment status', [['','Unknown'],['completed','Completed'],['pending','Pending']])+select('initial_source','Payment method',[['cash','Cash'],['check','Check'],['offline','Other offline gift']])+optional('initial_reference','Transaction or check reference')+select('initial_campaign','Gift campaign',[['','No campaign'],...campaigns.map(c=>[c.id,c.name])])+'<p>Only verified completed gifts with known currency enter giving reports. No message is sent.</p></fieldset>':'';
   const definitions=rows(await api('/custom-fields')).filter(f=>f.active!==false&&!f.hidden);
   const custom=definitions.map(f=>{const value=donor?.custom_fields?.[f.id]??'';if(f.type==='dropdown')return select(`custom:${f.id}`,f.label,[['','Not recorded'],...(f.options||[]).map(v=>[v,v])]);return `<label>${esc(f.label)}<input name="custom:${esc(f.id)}" type="${['checkbox','number','date'].includes(f.type)?f.type:'text'}" ${f.type==='number'?'step="any"':''} ${f.validation_rules?.required&&f.type!=='checkbox'?'required':''} ${f.type==='checkbox'?(value?'checked':''):`value="${esc(value)}"`}></label>`;}).join('');
-  form(donor?'Edit donor':'Add donor',donorFields(donor||{})+select('email_consent','Email contact permission',[['false','No recorded consent'],['true','Verified consent']])+select('sms_consent','Text contact permission',[['false','No recorded consent'],['true','Verified consent']])+select('opted_out','Contact opt-out',[['false','No opt-out recorded'],['true','Opted out. Do not contact']])+custom+(donor?'':(can('assignments.manage')?select('owner_id','Relationship owner',[['','Balance ownership automatically'],...owners.map(m=>[m.id,m.name])]):'')+'<label>Introduction note<textarea name="notes" maxlength="4000"></textarea></label><div id="donor-duplicate-review"></div>'),async values=>{
+  form(donor?'Edit donor':'Add donor',donorFields(donor||{})+initialGift+select('email_consent','Email contact permission',[['false','No recorded consent'],['true','Verified consent']])+select('sms_consent','Text contact permission',[['false','No recorded consent'],['true','Verified consent']])+select('opted_out','Contact opt-out',[['false','No opt-out recorded'],['true','Opted out. Do not contact']])+custom+(donor?'':(can('assignments.manage')?select('owner_id','Relationship owner',[['','Balance ownership automatically'],...owners.map(m=>[m.id,m.name])]):'')+'<label>Introduction note<textarea name="notes" maxlength="4000"></textarea></label><div id="donor-duplicate-review"></div>'),async values=>{
    const custom_fields={};for(const f of definitions){const value=values[`custom:${f.id}`];custom_fields[f.id]=f.type==='checkbox'?value==='on':f.type==='number'&&value!==''?Number(value):value;delete values[`custom:${f.id}`];}
    for(const key of ['email_consent','sms_consent','opted_out'])values[key]=values[key]==='true';
    if(!id){values.idempotency_key=saveKey;if(values.allow_duplicate){if(!values.duplicate_reason||values.duplicate_reason.trim().length<3)throw new Error('Explain why this is a distinct donor.');values.allow_duplicate=true;}}
+   if(!id){
+    if(values.initial_amount){
+     if(!values.initial_date)throw new Error('Enter a date for the initial donation.');
+     values.initial_donation={amount:values.initial_amount,donation_date:values.initial_date,currency:values.initial_currency||null,status:values.initial_status||null,source:values.initial_source,campaign_id:values.initial_campaign||null,external_transaction_id:values.initial_reference||null};
+    }
+    for(const key of ['amount','date','currency','status','source','campaign','reference'])delete values[`initial_${key}`];
+   }
    let saved;
    try{saved=await api(`/donors${id?'/'+encodeURIComponent(id):''}`,{method:id?'PATCH':'POST',body:{...values,custom_fields}});}
    catch(error){if(!id&&error.code==='DUPLICATE_DONOR'){const target=formElement().querySelector('#donor-duplicate-review');target.innerHTML='<p class="error">Possible duplicate. Review existing donors before deliberately creating a distinct record.</p><label><span><input type="checkbox" name="allow_duplicate" required> I verified this is a distinct donor, not a duplicate.</span></label><label>Why this is a distinct donor<textarea name="duplicate_reason" minlength="3" maxlength="500" required></textarea></label>';}throw error;}
@@ -24,6 +33,8 @@ export function donorWorkflows(ctx){
    if(!id)location.hash=profileUrl(saved.id,'details');
   },donor?'Save donor details':'Create donor');
   const element=formElement();element.elements.namedItem('donor_type').value=donor?.donor_type||'person';
+  if(!id){const hint=document.createElement('p');hint.setAttribute('role','status');hint.hidden=true;hint.innerHTML='This name may represent an organization. <button type="button">Use Organization</button>';element.elements.namedItem('donor_type').closest('label').after(hint);const suggest=()=>{hint.hidden=element.elements.namedItem('donor_type').value!=='person'||!/\b(?:opportunity hack|foundation|association|university|nonprofit|charity|corporation|inc\.?|llc)\b/i.test(element.elements.namedItem('name').value);};element.elements.namedItem('name').addEventListener('input',suggest);element.elements.namedItem('donor_type').addEventListener('change',suggest);hint.querySelector('button').onclick=()=>{element.elements.namedItem('donor_type').value='organization';hint.hidden=true;};}
+  if(initialGift){const amount=element.elements.namedItem('initial_amount');amount.min='0.01';amount.step='0.01';element.elements.namedItem('initial_currency').pattern='[A-Z]{3}';amount.oninput=()=>{element.elements.namedItem('initial_date').required=amount.value!=='';};}
   for(const key of ['email_consent','sms_consent','opted_out'])element.elements.namedItem(key).value=String(donor?.[key]===true);
   for(const f of definitions.filter(f=>f.type==='dropdown'))element.elements.namedItem(`custom:${f.id}`).value=donor?.custom_fields?.[f.id]||'';
  }

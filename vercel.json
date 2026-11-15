@@ -6,6 +6,7 @@
   "functions": {
     "api/**/*.js": {
       "includeFiles": "lib/import-worker.js",
+      "excludeFiles": "**/.env*",
       "maxDuration": 60
     }
   },
@@ -37,7 +38,7 @@
   "crons": [
     {
       "path": "/api/jobs/prepare",
-      "schedule": "0 6 * * *"
+      "schedule": "0 16 * * *"
     }
   ]
 }

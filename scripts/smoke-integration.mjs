@@ -17,6 +17,7 @@ const directory=await mkdtemp(join(tmpdir(),'colorloop-smoke-'));
 const database=await createIsolatedDatabase();let server;
 const password='Aa1!'+randomBytes(24).toString('hex');
 process.env.MFA_ENCRYPTION_KEY=randomBytes(32).toString('base64');
+process.env.EMAIL_DELIVERY_MODE='disabled';process.env.EMAIL_CRON_ENABLED='false';
 try {
   await database.transaction(migrate);
   const store=await initializeSyntheticDemo(database,password);

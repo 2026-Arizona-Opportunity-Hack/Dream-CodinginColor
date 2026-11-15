@@ -14,6 +14,7 @@ const {startServer}=await import(process.env.COLORLOOP_TEST_BACKEND?sourceURL(pr
 const directory=await mkdtemp(join(tmpdir(),'colorloop-browser-'));
 const database=await createIsolatedDatabase();let password='Aa1!'+randomBytes(24).toString('hex');
 process.env.MFA_ENCRYPTION_KEY=randomBytes(32).toString('base64');
+process.env.EMAIL_DELIVERY_MODE='disabled';process.env.EMAIL_CRON_ENABLED='false';
 let server,chrome,websocket;
 try{
  await database.transaction(migrate);const store=await initializeSyntheticDemo(database,password);
@@ -134,7 +135,7 @@ try{
   await evaluate("(()=>{const form=document.querySelector('#mapping');form.elements.namedItem('review_currency').value='USD';form.elements.namedItem('review_status').value='completed';form.requestSubmit();})()");
   await wait("document.querySelector('#validated form')");
   if(retry)assert.match(await evaluate("document.querySelector('#validated').textContent"),/2 existing transactions/);
-  await evaluate("(()=>{const form=document.querySelector('#validated form');for(const owner of form.querySelectorAll('select[name^=\"owner:\"]'))owner.value=[...owner.options].find(o=>o.textContent.includes('board-a@example.test')).value;for(const campaign of form.querySelectorAll('select[name^=\"campaign:\"]')){if(campaign.options[0].textContent==='Choose campaign decision'){campaign.value='create';form.elements.namedItem(campaign.name+':approved').checked=true;}}form.requestSubmit();})()");
+  await evaluate("(()=>{const form=document.querySelector('#validated form');form.querySelector('#approve-recognized-owners')?.click();for(const campaign of form.querySelectorAll('select[name^=\"campaign:\"]')){if(campaign.options[0].textContent==='Choose campaign decision'){campaign.value='create';form.elements.namedItem(campaign.name+':approved').checked=true;}}form.requestSubmit();})()");
 
   await wait("document.querySelector('#final-confirmation .primary')");await evaluate("document.querySelector('#final-confirmation .primary').click()");await wait("document.querySelector('#validated h3')?.textContent==='Import confirmed'");
  }
@@ -205,12 +206,36 @@ try{
   await evaluate(`document.querySelector('[data-donor="${donorId}"]').click()`);await wait("document.querySelector('#donor-section')");
   assert.equal(await evaluate("new URLSearchParams(document.querySelector('.back-link').getAttribute('href').split('?')[1]).get('q')"),'Demo Alex');
   await evaluate('history.back()');await wait("document.querySelector('#donor-search')?.value==='Demo Alex'");
-  // Create a real synthetic donor through the enhanced manual-entry form.
+  // Configure and exercise the genuine admin policy UI with delivery explicitly off.
+  await evaluate("location.hash='settings?section=outreach'");await wait("[...document.querySelectorAll('main button')].some(b=>b.textContent==='Email automation policy')");
+  await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Email automation policy').click()");await wait("document.querySelector('#modal').open&&document.querySelector('#modal-title').textContent==='Email automation policy'");
+  assert.equal(await evaluate("document.querySelector('#modal-fields').textContent.includes('Scheduled provider sending: off; server opt-in is required')"),true);
+  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.donorEnabled.value='false';f.elements.boardEnabled.value='false';f.elements.reason.value='Synthetic browser administrator keeps all email automation disabled';f.elements.confirmed.checked=true;f.requestSubmit();})()");await wait("!document.querySelector('#modal').open");
+  const emailPolicy=(await database.query('SELECT email_policy FROM retention_settings')).rows[0].email_policy;assert.equal(emailPolicy.donorEnabled,false);assert.equal(emailPolicy.boardEnabled,false);
+  await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Send ONE TEST board reminder').click()");await wait("document.querySelector('#modal-title').textContent==='ONE TEST board reminder'");
+  assert.equal(await evaluate("document.querySelector('#modal-form').elements.recipient.value"),'');
+  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.recipient.value='verified-inbox@synthetic-cic-mail.org';f.elements.confirmed.checked=true;f.requestSubmit();})()");await wait("document.querySelector('#modal-error').textContent.includes('EMAIL_DELIVERY_MODE=test')");
+  assert.equal((await database.query("SELECT count(*)::int AS n FROM retention_events WHERE type='email.board-test'")).rows[0].n,0);
+  await evaluate("document.querySelector('#close-modal').click()");
+  assert.equal((await evaluate("(async()=>{const {api}=await import('/public/js/api.js');return api('/email/run',{method:'POST',body:{confirmed:true}});})()")).enabled,false);
+  const emailConfirmation=new Promise(resolve=>{const listener=event=>{const data=JSON.parse(event.data);if(data.method==='Page.javascriptDialogOpening'){websocket.removeEventListener('message',listener);resolve(data.params);}};websocket.addEventListener('message',listener);});
+  await evaluate("setTimeout(()=>[...document.querySelectorAll('main button')].find(b=>b.textContent==='Process approved email queue').click(),0)");assert.equal((await emailConfirmation).type,'confirm');await cdp('Page.handleJavaScriptDialog',{accept:true});
+  await wait("[...document.querySelectorAll('main [role=status]')].some(p=>p.textContent.includes('Email delivery is disabled'))");
+  await evaluate("location.hash='donors'");await wait("document.querySelector('#donor-search')");
+  // Initial gift is optional, saves atomically, and uses the existing gift ledger.
   await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Add donor').click()");await wait("document.querySelector('#modal').open");
-  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.name.value='Synthetic UX manual entry';f.elements.email.value='ux-manual@example.test';f.elements.notes.value='Synthetic independently reviewed identity source';f.requestSubmit();})()");
+  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.name.value='Synthetic Opportunity Hack Initial';f.elements.name.dispatchEvent(new Event('input',{bubbles:true}));[...f.querySelectorAll('button')].find(b=>b.textContent==='Use Organization').click();f.elements.organization_name.value='Synthetic Opportunity Hack';f.elements.contact_person.value='Synthetic Treasurer';f.elements.initial_amount.value='12.34';f.elements.initial_currency.value='USD';f.elements.initial_status.value='completed';f.elements.initial_source.value='check';f.requestSubmit();f.requestSubmit();})()");
+  await wait("!document.querySelector('#modal').open&&document.querySelector('main h1')?.textContent==='Synthetic Opportunity Hack Initial'");
+  assert.equal((await database.query("SELECT donor_type FROM donors WHERE display_name='Synthetic Opportunity Hack Initial'")).rows[0].donor_type,'organization');
+  const initialFormGift=(await database.query("SELECT g.amount,g.source FROM donations g JOIN donors d ON d.id=g.donor_id WHERE d.display_name='Synthetic Opportunity Hack Initial'")).rows;assert.deepEqual(initialFormGift,[{amount:'12.34',source:'check'}]);
+  await evaluate("location.hash='donors'");await wait("document.querySelector('#donor-search')");
+  // Create a real synthetic donor without an initial gift.
+  await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Add donor').click()");await wait("document.querySelector('#modal').open");
+  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.name.value='Synthetic UX manual entry';f.elements.email.value='ux-manual@example.test';f.elements.notes.value='Synthetic independently reviewed identity source';f.elements.company.value='Synthetic Employer';f.elements.organization_name.value='Synthetic Partner';f.elements.contact_person.value='Synthetic Contact';f.requestSubmit();})()");
   await wait("!document.querySelector('#modal').open&&document.querySelector('main h1')?.textContent==='Synthetic UX manual entry'");
   const manualId=(await database.query("SELECT id FROM donors WHERE normalized_email='ux-manual@example.test'")).rows[0].id;
-  await evaluate("[...document.querySelectorAll('.profile-actions button')].find(b=>b.textContent==='Record gift').click()");await wait("document.querySelector('#modal-title').textContent==='Record a gift'");
+  assert.deepEqual((await database.query('SELECT donor_type,company,organization_name,contact_person FROM donors WHERE id=$1',[manualId])).rows[0],{donor_type:'person',company:'Synthetic Employer',organization_name:'Synthetic Partner',contact_person:'Synthetic Contact'});
+  await evaluate("[...document.querySelectorAll('.profile-actions button')].find(b=>b.textContent==='Record gift').click()");await wait("document.querySelector('#modal').open&&document.querySelector('#modal-title').textContent==='Record a gift'");
   await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.amount.value='25.75';f.elements.currency.value='USD';f.elements.status.value='completed';f.elements.donated_at.value='2026-11-13';f.elements.source.value='cash';f.elements.notes.value='Synthetic cash gift with verified receipt';f.requestSubmit();})()");
   await wait("document.querySelector('#gift-review')&&!document.querySelector('#gift-review').hidden");
   assert.equal((await database.query('SELECT count(*)::int AS n FROM donations WHERE donor_id=$1',[manualId])).rows[0].n,0);
@@ -218,7 +243,7 @@ try{
   const gifts=(await database.query('SELECT * FROM donations WHERE donor_id=$1',[manualId])).rows;assert.equal(gifts.length,1);assert.equal(gifts[0].amount,'25.75');assert.equal(gifts[0].source,'cash');assert.equal(gifts[0].external_transaction_id,null);
   // Missing payment values remain unknown and outside verified totals.
   await wait("[...document.querySelectorAll('.profile-actions button')].some(b=>b.textContent==='Record gift')");
-  await evaluate("[...document.querySelectorAll('.profile-actions button')].find(b=>b.textContent==='Record gift').click()");await wait("document.querySelector('#modal-title').textContent==='Record a gift'");
+  await evaluate("[...document.querySelectorAll('.profile-actions button')].find(b=>b.textContent==='Record gift').click()");await wait("document.querySelector('#modal').open&&document.querySelector('#modal-title').textContent==='Record a gift'");
   await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.amount.value='1.01';f.elements.donated_at.value='2026-11-12';f.requestSubmit();})()");await wait("document.querySelector('#gift-review')&&!document.querySelector('#gift-review').hidden");
   assert.match(await evaluate("document.querySelector('#gift-review').textContent"),/currency unknown/);
   await evaluate("document.querySelector('#modal-form').requestSubmit()");await wait("!document.querySelector('#modal').open");
@@ -251,7 +276,7 @@ try{
   const draftId=await evaluate("new URLSearchParams(location.hash.split('?')[1]).get('draft')");
   await evaluate("(()=>{const f=document.querySelector('#review-outreach');f.elements.subject.value='Synthetic reviewed thank-you';f.elements.subject.dispatchEvent(new Event('input',{bubbles:true}));})()");
   await evaluate("[...document.querySelectorAll('#draft-actions button')].find(b=>b.textContent==='Save edits and approve').click()");
-  await wait("document.querySelector('#draft-review .workflow-steps [aria-current=step]')?.textContent.includes('Approved')");
+  await wait("[...document.querySelectorAll('#draft-actions button')].some(b=>b.textContent==='Prepare manual-send handoff')");
   assert.equal((await database.query('SELECT status FROM outreach_messages WHERE id=$1',[draftId])).rows[0].status,'approved');
   await evaluate("[...document.querySelectorAll('#draft-actions button')].find(b=>b.textContent==='Prepare manual-send handoff').click()");await wait("document.querySelector('#modal-title').textContent==='Approved message handoff'");
   await evaluate("document.querySelector('#modal-form').requestSubmit()");await wait("!document.querySelector('#modal').open");
@@ -260,6 +285,31 @@ try{
   await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.reference.value='Synthetic human send evidence, no external provider';f.requestSubmit();})()");await wait("!document.querySelector('#modal').open");
   assert.equal((await database.query('SELECT status FROM outreach_messages WHERE id=$1',[draftId])).rows[0].status,'sent');
   assert.equal(apiRequests.includes('/api/outreach/send'),false);
+  // Exercise the real browser button with an injected Resend response, never real delivery.
+  const directInbox=process.env.EMAIL_TEST_INBOXES?.split(',')[0]?.trim()||'verified-inbox@synthetic-cic-mail.org';
+  const savedEnv=Object.fromEntries(['EMAIL_DELIVERY_MODE','RESEND_API_KEY','EMAIL_FROM','EMAIL_TEST_INBOXES'].map(k=>[k,process.env[k]])),nativeFetch=globalThis.fetch;
+  let directPosts=0;
+  try{
+   Object.assign(process.env,{EMAIL_DELIVERY_MODE:'test',RESEND_API_KEY:'synthetic-chrome-key',EMAIL_FROM:'sender@synthetic-cic-mail.org',EMAIL_TEST_INBOXES:directInbox});
+   globalThis.fetch=async(url,options)=>{if(new URL(url).hostname==='api.resend.com'){if(options.method==='POST'){directPosts++;assert.deepEqual(JSON.parse(options.body).to,[directInbox]);return Response.json({id:'synthetic-chrome-direct'});}return Response.json({id:'synthetic-chrome-direct',last_event:'delivered'});}return nativeFetch(url,options);};
+   await database.query('UPDATE donors SET normalized_email=$2 WHERE id=$1',[donorId,directInbox]);
+   const directId=await evaluate(`(async()=>{const {api}=await import('/public/js/api.js');const d=await api('/outreach/drafts',{method:'POST',body:{donor_id:${JSON.stringify(donorId)},templateId:'follow-up'}});location.hash='outreach?view=drafts&draft='+d.id;return d.id;})()`);
+   await wait("document.querySelector('#review-outreach')&&[...document.querySelectorAll('#draft-actions button')].some(b=>b.textContent==='Approve & Send Email')");
+   assert.equal(await evaluate("[...document.querySelectorAll('#draft-actions button')].some(b=>b.textContent==='Send approved email')"),false);
+   assert.equal(await evaluate("document.querySelector('#review-outreach').elements['reviewed-recipient'].value"),directInbox);
+   const confirmation=()=>new Promise(resolve=>{const listen=e=>{const d=JSON.parse(e.data);if(d.method==='Page.javascriptDialogOpening'){websocket.removeEventListener('message',listen);resolve(d.params);}};websocket.addEventListener('message',listen);});
+   let confirmSend=confirmation();
+   await evaluate("setTimeout(()=>[...document.querySelectorAll('#draft-actions button')].find(b=>b.textContent==='Approve & Send Email').click(),0)");assert.ok((await confirmSend).message.includes(directInbox));await cdp('Page.handleJavaScriptDialog',{accept:false});
+   await wait("[...document.querySelectorAll('#draft-actions button')].some(b=>b.textContent==='Approve & Send Email'&&!b.disabled)");assert.equal(directPosts,0);
+   assert.equal((await database.query('SELECT status FROM outreach_messages WHERE id=$1',[directId])).rows[0].status,'draft');
+   confirmSend=confirmation();await evaluate("setTimeout(()=>[...document.querySelectorAll('#draft-actions button')].find(b=>b.textContent==='Approve & Send Email').click(),0)");await confirmSend;await cdp('Page.handleJavaScriptDialog',{accept:true});
+   await wait("[...document.querySelectorAll('#draft-actions button')].some(b=>b.textContent==='Check delivery status')");
+   assert.equal((await database.query('SELECT status FROM outreach_messages WHERE id=$1',[directId])).rows[0].status,'queued');assert.equal(directPosts,1);
+   await evaluate("[...document.querySelectorAll('#draft-actions button')].find(b=>b.textContent==='Check delivery status').click()");await wait("document.querySelector('#draft-review').textContent.includes('Provider-confirmed delivered')");
+   await evaluate(`(async()=>{const {api}=await import('/public/js/api.js');return api('/outreach/drafts/${directId}/send',{method:'POST'});})()`);assert.equal(directPosts,1);
+   await evaluate("location.hash='outreach?view=history'");await wait("document.querySelector('#outreach-view')?.textContent.includes('synthetic-chrome-direct')");
+   assert.equal(await evaluate(`document.querySelector('#outreach-view').textContent.includes(${JSON.stringify(directInbox)})`),true);
+  }finally{globalThis.fetch=nativeFetch;for(const [key,value]of Object.entries(savedEnv))if(value===undefined)delete process.env[key];else process.env[key]=value;await database.query('UPDATE donors SET normalized_email=$2 WHERE id=$1',[donorId,'demo-alex@example.test']);}
   await evaluate("location.hash='imports'");await wait("document.querySelector('[data-batch]')");
   await evaluate("document.querySelector('[data-batch]').click()");await wait("document.querySelector('#import-history-detail table')");
  await database.query('UPDATE users SET board_member=false'); // Disposable fixture: mirror the real empty board roster.
@@ -280,9 +330,13 @@ try{
  await evaluate('new Promise(resolve=>setTimeout(resolve,8300))');assert.equal(await evaluate("document.querySelector('#notice').textContent"),'');
  assert.equal((await database.query('SELECT count(*)::int AS n FROM tasks WHERE donor_id=$1 AND next_action=$2',[donorId,'Synthetic deployment follow-up'])).rows[0].n,1);
  assert.equal((await database.query('SELECT u.email FROM tasks t JOIN users u ON t.assignee_id=u.id WHERE t.donor_id=$1 AND t.next_action=$2',[donorId,'Synthetic deployment follow-up'])).rows[0].email,'admin@example.test');
+ const emailTaskId=(await database.query('SELECT id FROM tasks WHERE donor_id=$1 AND next_action=$2',[donorId,'Synthetic deployment follow-up'])).rows[0].id;
+ await evaluate(`location.hash='tasks?task=${emailTaskId}'`);await wait("document.querySelector('#modal').open&&document.querySelector('#modal-title').textContent==='Update follow-up'");
+ assert.equal(await evaluate("document.querySelector('#modal-form').elements.due_date.value"),'2026-11-20');
+ await evaluate("document.querySelector('#close-modal').click()");
  await evaluate("location.hash='settings'");await wait("document.querySelector('main').textContent.includes('No board members have been added.')");
  await evaluate("location.hash='outreach'");await wait("document.querySelector('[data-draft]')");
- assert.equal(await evaluate("[...document.querySelectorAll('[data-draft]')].filter(b=>b.closest('tr').textContent.includes('demo-alex@example.test')).length"),4);
+ assert.equal(await evaluate("[...document.querySelectorAll('[data-draft]')].filter(b=>b.closest('tr').textContent.includes('demo-alex@example.test')).length"),5); // Includes the direct-send fixture.
  assert.match(await evaluate("[...document.querySelectorAll('[data-draft]')].find(b=>b.closest('tr').textContent.includes('demo-alex@example.test')).closest('table').textContent"),/\$1,000\.00/);
 
  await evaluate("location.hash='reports'");await wait("[...document.querySelectorAll('main button')].some(b=>b.textContent==='Funder gift history and outcomes')");
@@ -292,6 +346,10 @@ try{
  await wait("!document.querySelector('#modal').open&&document.querySelector('main').textContent.includes('Verified funded outcomes')");
  const pdf=await cdp('Page.printToPDF',{printBackground:true});assert.ok(Buffer.from(pdf.data,'base64').length>1000);
  await writeFile(join(directory,'synthetic-funder.pdf'),Buffer.from(pdf.data,'base64'));
+ // Authenticate normal assignment mutations before testing the reminder link as its board recipient.
+ const emailBoardId=(await database.query("SELECT id FROM users WHERE email='applicant-browser@example.test'")).rows[0].id;
+ await database.query('UPDATE users SET board_member=true WHERE id=$1',[emailBoardId]);
+ await evaluate(`(async()=>{const {api}=await import('/public/js/api.js');await api('/assignments',{method:'POST',body:{donorId:${JSON.stringify(donorId)},assigneeId:${JSON.stringify(emailBoardId)}}});await api('/tasks/${emailTaskId}',{method:'PATCH',body:{assignee_id:${JSON.stringify(emailBoardId)}}});})()`);
  assert.deepEqual(errors,[]);
  await evaluate("document.querySelector('#session').click();document.querySelector('#sign-out').click()");await wait("!document.querySelector('#sign-in').hidden");await assertSignedOut();
  assert.equal((await database.query('SELECT count(*)::int AS n FROM sessions')).rows[0].n,0);
@@ -301,6 +359,11 @@ try{
  await signIn(applicantPassword,'applicant-browser@example.test');await completeBrowserAuthentication('applicant-browser@example.test',applicantPassword);
  assert.equal(await evaluate("document.querySelector('#account-role').textContent"),'Board member');
  assert.equal(await evaluate("[...document.querySelectorAll('aside nav a')].map(a=>a.textContent).join(',')"),'My donors,My follow-ups,My drafts');
+ await evaluate(`location.hash='tasks?task=${emailTaskId}'`);await wait("document.querySelector('#modal').open&&document.querySelector('#modal-title').textContent==='Update follow-up'");
+ assert.equal(await evaluate("document.querySelector('#modal-form').elements.assignee_id.value"),emailBoardId);
+ assert.equal(await evaluate("document.querySelector('#modal-fields').textContent.includes('Synthetic deployment follow-up')"),true);
+ await evaluate("document.querySelector('#close-modal').click();location.hash='tasks?task=50000000-0000-4000-8000-000000000099'");await wait("document.querySelector('#notice').textContent.includes('This follow-up is unavailable to your account.')");
+ assert.equal(await evaluate("document.querySelector('#modal').open"),false);
  await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});assert.equal(await evaluate("document.documentElement.scrollWidth<=innerWidth"),true);assert.equal(await evaluate("[...document.querySelectorAll('#mobile-navigation a')].map(a=>a.textContent).join(',')"),'My donors,My follow-ups,My drafts');await cdp('Emulation.clearDeviceMetricsOverride');
  await evaluate("document.querySelector('#session').click();document.querySelector('#sign-out').click()");await wait("!document.querySelector('#sign-in').hidden");recoveryCodes=adminRecoveryCodes;
  await signIn(password);await completeBrowserAuthentication();
@@ -309,7 +372,7 @@ try{
  await evaluate("location.hash=location.hash==='#donors'?'tasks':'donors'");await wait("!document.querySelector('#sign-in').hidden");await assertSignedOut();
  assert.equal(await evaluate("location.hash"),'#sign-in');
 
- console.log(JSON.stringify({result:'PASS',realSql:true,integratedMentorWorkflows:true,manualGiftReview:true,serverMergePreview:true,inlineApproval:true,secureBrowserCookie:true,screens:screens.length,donorProfile:true,interactionSaved:true,followUpCreated:true,searchableDonor:true,groupedCampaigns:true,mentorGifts:5,mentorTotal:2600,notificationExpires:true,emptyBoardRoster:true,assignToSelf:true,draftGiftMetadata:true,funderPdfBytes:Buffer.from(pdf.data,'base64').length,browserExceptions:errors.length,accountRoleSafety:true,dedicatedSignIn:true,refreshPreservesMfa:true,backNavigationSafe:true,realTotp:true,signupApproval:true,mobileProfile:true,authenticatorReset:true,campaignReview:true,profileSaved:true,preferencesSaved:true,passwordChanged:true,recoveryRegenerated:true,profileMenu:true,sessionExpiry:true,logout:true}));
+ console.log(JSON.stringify({result:'PASS',realSql:true,integratedMentorWorkflows:true,manualGiftReview:true,serverMergePreview:true,inlineApproval:true,secureBrowserCookie:true,screens:screens.length,donorProfile:true,interactionSaved:true,followUpCreated:true,emailTaskLinks:true,emailCronDisabled:true,searchableDonor:true,groupedCampaigns:true,mentorGifts:5,mentorTotal:2600,notificationExpires:true,emptyBoardRoster:true,assignToSelf:true,draftGiftMetadata:true,funderPdfBytes:Buffer.from(pdf.data,'base64').length,browserExceptions:errors.length,accountRoleSafety:true,dedicatedSignIn:true,refreshPreservesMfa:true,backNavigationSafe:true,realTotp:true,signupApproval:true,mobileProfile:true,authenticatorReset:true,campaignReview:true,profileSaved:true,preferencesSaved:true,passwordChanged:true,recoveryRegenerated:true,profileMenu:true,sessionExpiry:true,logout:true}));
 }finally{
  websocket?.close();if(chrome){const exited=once(chrome,'exit');chrome.kill('SIGTERM');await exited;}
  if(server)await new Promise(resolve=>server.close(resolve));await database.close();await rm(directory,{recursive:true,force:true});
