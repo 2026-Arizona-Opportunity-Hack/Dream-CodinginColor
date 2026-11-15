@@ -6,6 +6,7 @@
   "functions": {
     "api/**/*.js": {
       "includeFiles": "lib/import-worker.js",
+      "excludeFiles": "**/.env*",
       "maxDuration": 60
     }
   },

@@ -58,7 +58,7 @@ uses the shared API contracts with secure cookies and CSRF tokens.
 
 The full stack has been tested with an isolated PostgreSQL engine and real local
 HTTPS/Chrome. Live Neon migrations, hosted Vercel deployment, and real message
-delivery have not been performed. Provider delivery stays disabled.
+delivery have not been performed. Provider delivery stays disabled by default.
 
 ## Mentor UX update
 
@@ -176,6 +176,18 @@ The [final readiness checkpoints](docs/final-readiness-checklist.md) track the
 remaining approved improvements. Add Donor can optionally record an initial
 cash/check/offline gift in the same transaction, using the existing validated gift
 service and retry protection. Leaving the amount blank creates only the donor.
+Organization, employer and human contact are separate fields. Import classification
+suggestions require review; equal donor workloads rotate fairly, and unambiguous
+board contacts can be approved together.
+
+Optional [real email delivery and board reminders](docs/EMAIL-OPERATIONS.md) reuse
+the approved-draft and delivery-history workflow. Transport and activation policies
+are OFF by default. Local/demo mail requires real verified test inboxes; synthetic
+addresses are blocked. No real email delivery has been verified. Migrations 008–010
+are additive and require review before shared application; no shared migration runs
+automatically. SMS remains a manual handoff. Live donor activation requires CIC approval.
+Vercel function bundles explicitly exclude local `.env*` files; the compiled-output
+verifier checks this in addition to the public static allowlist.
 
 Backend support for the mentor workflows includes guarded manual donor/gift entry,
 server-issued merge previews, confirmed source aliases, and paginated read APIs.
@@ -205,7 +217,8 @@ responsive tables and contextual empty states support the mentor demo. See the
 Verified gifts prepare idempotent thank-you drafts. Daily authenticated preparation
 creates separate quarterly donor updates/tasks, board assignment summaries and
 overdue reminders. Production scheduling needs a real preparation account and
-server-only `CRON_SECRET`/`AUTOMATION_USER_ID`; it never sends messages.
+server-only `CRON_SECRET`/`AUTOMATION_USER_ID`. It sends no messages by default;
+separately activated email policies can process approved mail and board reminders.
 
 Manual handoff locks an approved, consent-checked revision and records `handed_off`.
 A separate evidence-backed human attestation records a human-reported send. No

@@ -15,6 +15,7 @@ async function walk(directory,prefix=''){
  const result=[];for(const entry of await readdir(join(directory,prefix),{withFileTypes:true})){const path=prefix?`${prefix}/${entry.name}`:entry.name;if(entry.isDirectory())result.push(...await walk(directory,path));else result.push(path);}return result;
 }
 const configs=(await walk(join(root,'functions'))).filter(p=>p.endsWith('.vc-config.json'));
+assert.ok((await walk(join(root,'functions'))).every(p=>!/(?:^|\/)\.env/.test(p)),'Private environment files must never be packaged in function bundles');
 assert.equal(configs.length,5);assert.ok(configs.length<=12);
 for(const path of configs){const settings=JSON.parse(await readFile(join(root,'functions',path),'utf8'));assert.equal(settings.runtime,'nodejs22.x');}
 await access(join(root,'functions/api/router.func/lib/import-worker.js'));
@@ -32,4 +33,4 @@ const {createRouter}=await import(pathToFileURL(join(root,'functions/api/router.
 const router=createRouter();for(const [path,status] of [['v1/openapi',200],['v1/follow-ups',401],['email/settings',401],['email/run',405]]){const res={setHeader(){},status(n){this.statusCode=n;return this;},json(v){this.body=v;this.headersSent=true;return this;}};await router({method:'GET',query:{route:path},headers:{}},res);assert.equal(res.statusCode,status);if(status===200)assert.equal(res.body.openapi,'3.1.1');}
 const publicFiles=await walk(join(root,'static'));assert.ok(publicFiles.every(p=>p==='index.html'||p.startsWith('public/')));
 assert.ok(publicFiles.every(p=>!/(?:^|\/)\.env|\.sql$|(?:^|\/)(?:lib|db|node_modules)\//.test(p)));
-console.log(JSON.stringify({actualVercelBuild:true,functions:configs.length,rewrittenPathsVerified:paths.length,packagedXlsxWorkerExecuted:true,packagedTotpAndQrExecuted:true,packagedOpenApiExecuted:true,packagedEmailGuardsExecuted:true,privateStaticAssets:false}));
+console.log(JSON.stringify({actualVercelBuild:true,functions:configs.length,rewrittenPathsVerified:paths.length,packagedXlsxWorkerExecuted:true,packagedTotpAndQrExecuted:true,packagedOpenApiExecuted:true,packagedEmailGuardsExecuted:true,privateEnvironmentFilesPackaged:false,privateStaticAssets:false}));
