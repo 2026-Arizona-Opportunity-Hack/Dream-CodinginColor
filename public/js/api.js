@@ -112,8 +112,10 @@ export function createApiClient(fetcher = globalThis.fetch, {onUnauthorized=()=>
     if (p === '/outreach/drafts' && method==='GET') { const list=await raw(path);list.forEach(d=>drafts.set(d.id,d));return list; }
     if (segments[0] === 'outreach' && segments[1] === 'drafts' && segments[2]) {
       const draft=drafts.get(segments[2]);if(!draft)throw new Error('Reopen this draft before changing it.');
-      return raw(segments[3]?`/outreach/${segments[3]}`:'/outreach/drafts',method,
+      const saved=await raw(segments[3]?`/outreach/${segments[3]}`:'/outreach/drafts',method,
         {id:draft.id,revision:draft.revision,...(body||{})});
+      const current=saved.draft||saved;if(current.id&&Number.isInteger(current.revision))drafts.set(current.id,current);
+      return saved;
     }
     if (p === '/outreach/drafts' && method==='POST') {
       if(body.type==='quarterly_board_summary')return raw('/tasks/reminders','POST',{kind:'quarterly'});
@@ -124,12 +126,8 @@ export function createApiClient(fetcher = globalThis.fetch, {onUnauthorized=()=>
     if (p === '/merges/candidates') {
       const list=await all(p), unique=new Map();for(const pair of list){unique.set(pair.donor_id,{id:pair.donor_id,name:pair.display_name});unique.set(pair.candidate_id,{id:pair.candidate_id,name:pair.candidate_name});}return [...unique.values()];
     }
-    if (p === '/merges/preview') {
-      const [source,target,gifts]=await Promise.all([raw(`/donors/${encodeURIComponent(body.sourceId)}`),raw(`/donors/${encodeURIComponent(body.targetId)}`),all(`/donors/${encodeURIComponent(body.sourceId)}/donations`)]);
-      return {source:source.display_name,retain:target.display_name,sourceGiftCount:gifts.length,
-        warning:'All live tasks, activities and messages move to the retained donor. Opt-outs are preserved; consent is combined conservatively.'};
-    }
-    if (p === '/merges') return raw(p,'POST',{canonical_donor_id:body.targetId,merged_donor_id:body.sourceId,reason:body.reason||'Human-reviewed duplicate identity'});
+    if (p === '/merges/preview') return raw(p,'POST',{canonical_donor_id:body.targetId,merged_donor_id:body.sourceId,reason:body.reason});
+    if (p === '/merges') return raw(p,'POST',{canonical_donor_id:body.targetId,merged_donor_id:body.sourceId,reason:body.reason,preview_id:body.preview_id,confirmed:body.confirmed,identity_confirmed:body.identity_confirmed});
     if (p === '/imports/preview' && body instanceof FormData) {
       const file=body.get('file');if(!file||file.size>1000000)throw new Error('Choose a CSV/XLSX file of at most 1 MB.');
       const bytes=new Uint8Array(await file.arrayBuffer());let encoded='';for(const byte of bytes)encoded+=String.fromCharCode(byte);
