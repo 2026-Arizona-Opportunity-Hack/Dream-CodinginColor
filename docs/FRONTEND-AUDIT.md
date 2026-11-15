@@ -19,7 +19,7 @@ teammate database and authentication files were not changed.
 | Form labels | Pass: no unlabeled visible inputs/selects/textareas detected in the 28 screen checks; login inputs are explicitly labeled |
 | Text contrast | Pass in tested views: no computed text pairs below WCAG AA thresholds |
 | CIC logo | Not used: no approved asset exists in this checkout; ColorLoop and Coding in Color remain plain text, with no fabricated logo |
-| Existing tests | Pass: `npm test` — 9 tests, 0 failures |
+| Existing tests | Pass: `npm test`: 9 tests, 0 failures |
 | Syntax/whitespace | Pass: browser module and audit runner syntax checks; `git diff --check` |
 
 Representative contrast ratios:

@@ -42,6 +42,44 @@ test('reviewed import creates the selected type; human contact is not an ownersh
   await assert.rejects(tx(q=>confirmImport(q,{batch_id:explicit.batch_id,decisions:{2:{donor_type:'organization'}}},admin)),{code:'TYPE_CONFLICT'});
  }finally{await db.close();}
 });
+test('reviewed organization gifts reimport only after renewed classification approval, without new gifts',async()=>{
+ const {db,admin,tx}=await mentorFixture();
+ const input=upload([['Name','Email','Amount','Date','Currency','Status','Transaction ID'],['Opportunity Hack','synthetic-ohacks@example.test','400','2026-11-09','USD','completed','ORG-REIMPORT-1']]);
+ const preview=()=>tx(q=>previewImport(q,input,admin));
+ const confirm=(batch,decision)=>tx(q=>confirmImport(q,{batch_id:batch.batch_id,decisions:{2:decision}},admin));
+ try{
+  const first=await confirm(await preview(),{donor_type:'organization'});
+  const baseline=(await db.query('SELECT id,donor_id,amount FROM donations ORDER BY id')).rows;
+  const again=await preview();assert.equal(again.counts.invalid,0);assert.equal(again.rows[0].matching.reason,'existing_transaction');
+  assert.equal(again.rows[0].data.type_explicit,false);assert.equal(again.rows[0].data.donor.donor_type,'person','preview must not silently change classification');
+  await assert.rejects(confirm(again,{}),{code:'TYPE_REVIEW_REQUIRED'});
+  await assert.rejects(confirm(again,{donor_type:'person'}),{code:'TRANSACTION_CONFLICT'});
+  const result=await confirm(again,{donor_type:'organization'});
+  assert.equal(result.rows[0].result,'duplicate');assert.equal(result.rows[0].donor_id,first.rows[0].donor_id);
+  assert.deepEqual((await db.query('SELECT id,donor_id,amount FROM donations ORDER BY id')).rows,baseline);
+  assert.deepEqual(await confirm(again,{donor_type:'organization'}),result);
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM donors')).rows[0].n,1);
+ }finally{await db.close();}
+});
+test('organization reimport review cannot bypass explicit type, name, email or transaction safeguards',async()=>{
+ const {db,admin,tx}=await mentorFixture();
+ const columns=['Name','Email','Amount','Date','Currency','Status','Transaction ID','Donor type'];
+ const row=['Opportunity Hack','synthetic-ohacks@example.test','400','2026-11-09','USD','completed','ORG-REIMPORT-2',''];
+ const preview=r=>tx(q=>previewImport(q,upload([columns,r]),admin));
+ try{
+  const first=await preview(row);await tx(q=>confirmImport(q,{batch_id:first.batch_id,decisions:{2:{donor_type:'organization'}}},admin));
+  for(const [index,value]of [[7,'person'],[0,'Different Foundation'],[1,'different@example.test'],[1,'']]){
+   const changed=[...row];changed[index]=value;const p=await preview(changed);assert.equal(p.counts.invalid,1);
+   await assert.rejects(tx(q=>confirmImport(q,{batch_id:p.batch_id,decisions:{2:{donor_type:'organization'}}},admin)),{code:'INVALID_ROWS'});
+  }
+  const changed=[...row];changed[2]='999';const p=await preview(changed);assert.equal(p.counts.invalid,0);
+  await assert.rejects(tx(q=>confirmImport(q,{batch_id:p.batch_id,decisions:{2:{donor_type:'organization'}}},admin)),{code:'TRANSACTION_CONFLICT'});
+  const forced=await preview(row);
+  await assert.rejects(tx(q=>confirmImport(q,{batch_id:forced.batch_id,decisions:{2:{donor_type:'organization',donor_id:'new'}}},admin)),{code:'TRANSACTION_CONFLICT'});
+  assert.deepEqual((await db.query('SELECT count(*)::int AS n,sum(amount)::text AS total FROM donations')).rows[0],{n:1,total:'400.00'});
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM donors')).rows[0].n,1);
+ }finally{await db.close();}
+});
 test('008 upgrades populated 007 storage without inferring identities or changing historical data',async()=>{
  const db=await createIsolatedDatabase(),directory=new URL('../db/migrations/',import.meta.url);
  try{

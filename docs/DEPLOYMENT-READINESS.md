@@ -1,5 +1,9 @@
 # Deployment readiness and operating cost
 
+Historical implementation notes. For the current production checks and demo plan,
+see [the final pre-demo audit](FINAL-PRE-DEMO-AUDIT.md). Earlier test counts,
+database state and deployment limits below describe their original checkpoints.
+
 Current approval-ready release instructions, exposed-key rotation plan, and Hobby
 manual-deployment route: [VERCEL-RELEASE-HANDOFF.md](VERCEL-RELEASE-HANDOFF.md).
 The database/connection statements below describe the initial audit; migrations

@@ -1,11 +1,15 @@
 # Two-hour implementation checkpoints
 
+Historical implementation notes. For the current production checks and demo plan,
+see [the final pre-demo audit](FINAL-PRE-DEMO-AUDIT.md). Earlier test counts,
+database state and deployment limits below describe their original checkpoints.
+
 Branch: `feature/remaining-improvements`, starting at `942b6e2`.
 Timebox: November 15, 2026, 04:13–06:13 MST; final verification starts by 05:58.
 Only synthetic disposable databases are used. Local CSVs, `.env`, existing MFA
 configuration and main remain untouched. No live sending or deployment is implied.
 
-## Milestone 1 — optional initial gift
+## Milestone 1: optional initial gift
 
 - Implemented: Add Donor accepts an optional amount, date, currency, payment status,
   cash/check/offline method, reference and campaign. Blank amount creates no gift.
@@ -36,7 +40,7 @@ configuration and main remain untouched. No live sending or deployment is implie
 Existing human approval, consent, MFA, RBAC, CSRF and manual handoff remain required.
 Live donor automation must stay disabled until CIC approves activation.
 
-## Milestone 2 — organization and contact-person data
+## Milestone 2: organization and contact-person data
 
 - `organization_name`, `company` (employer), and `contact_person` are independent
   donor fields in forms, details, merge comparison, API validation and CSV/XLSX
@@ -56,7 +60,7 @@ Organization checkpoint validation: 36 focused tests passed, zero failed; the st
 build passed. Coverage includes independent CSV/XLSX fields, approved suggestions,
 explicit type preservation and populated 007 → 008 upgrade without historical changes.
 
-## Milestone 3 — fair ownership and bulk approval
+## Milestone 3: fair ownership and bulk approval
 
 - SQL imports/manual entry and state-based assignment use the fewest active donors,
   rotating tied member IDs after the last automatic allocation. A transaction-safe
@@ -71,7 +75,7 @@ explicit type preservation and populated 007 → 008 upgrade without historical 
   smoke passed with zero browser exceptions, including bulk approval and the new
   independent organization/contact-person form values. No extra migration needed.
 
-## Milestone 4 — real provider transport and truthful receipt states
+## Milestone 4: real provider transport and truthful receipt states
 
 - Added a real Resend REST adapter using built-in server-side fetch, fixed HTTPS
   provider URL, bounded timeouts, plain-text content and stable idempotency headers.
@@ -92,7 +96,7 @@ explicit type preservation and populated 007 → 008 upgrade without historical 
 - Scheduling, durable activation policy and delivery reconciliation are the next
   milestone described below; transport alone does not automatically dispatch mail.
 
-## Milestone 5 — approved automation and reminders
+## Milestone 5: approved automation and reminders
 
 - Added MFA/CSRF/administrator-protected policy and explicit queue-processing UI/API.
   Policy updates record a reason, confirmation, approver and fixed board template

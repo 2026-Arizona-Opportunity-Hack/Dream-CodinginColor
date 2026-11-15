@@ -1,5 +1,9 @@
 # CIC requirements implementation and handoff
 
+Historical implementation notes. For the current production checks and demo plan,
+see [the final pre-demo audit](FINAL-PRE-DEMO-AUDIT.md). Earlier test counts,
+database state and deployment limits below describe their original checkpoints.
+
 Scope: Problem 2 only, on `feature/cic-requirements`. The official Fall 2026
 brief and nonprofit Slack requirements take precedence over earlier teammate
 handoffs. No production database, deployment, or real messaging was used.

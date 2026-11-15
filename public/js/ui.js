@@ -1,8 +1,8 @@
 export function donorChoices(donors,query=''){
  const search=query.trim().toLowerCase();
- const label=d=>[d.name||d.display_name||'Unnamed donor',d.email||d.normalized_email||'No email',d.company].filter(Boolean).join(' — ');
+ const label=d=>[d.name||d.display_name||'Unnamed donor',d.email||d.normalized_email||'No email',d.company].filter(Boolean).join(', ');
  const counts=new Map();for(const donor of donors)counts.set(label(donor),(counts.get(label(donor))||0)+1);
- return donors.filter(d=>[d.name,d.display_name,d.email,d.normalized_email].some(v=>String(v||'').toLowerCase().includes(search))).map(d=>({id:d.id,label:label(d)+(counts.get(label(d))>1?` — record ${d.id}`:'')}));
+ return donors.filter(d=>[d.name,d.display_name,d.email,d.normalized_email].some(v=>String(v||'').toLowerCase().includes(search))).map(d=>({id:d.id,label:label(d)+(counts.get(label(d))>1?`, record ${d.id}`:'')}));
 }
 export function mountDonorSelector(parent,donors){
  const container=document.createElement('div');container.className='donor-selector';

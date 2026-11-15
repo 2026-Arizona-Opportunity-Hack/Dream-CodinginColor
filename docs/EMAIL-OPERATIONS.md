@@ -99,20 +99,20 @@ from provider receipts; use a dedicated Full access key for automatic polling.
    Keep `EMAIL_DELIVERY_MODE=test`. Preserve existing production data and MFA keys.
 2. Configure a real verified sender and an operator-owned test inbox in the private
    allowlist. Do not use exported/example/synthetic email addresses.
-3. Sign in with MFA. In Settings → Outreach settings, review the policy and enable
-   only the workflows being tested. Record the explicit test approval.
+3. Sign in with MFA. Keep unattended sending and both automation policies off.
+   A reviewed donor email can be sent directly without enabling those policies.
 4. Create a fictional donor using the real owned test inbox and explicit consent.
    Optionally record a small **synthetic** initial gift in this test database.
-5. Review and approve the exact thank-you or follow-up in Outreach. It must not
-   send before approval. Choose **Process approved email queue** in Settings and
-   confirm the real test-inbox send action.
-6. Expect **Provider accepted; delivery pending**, not delivered. Check the actual
-   inbox/provider dashboard. Run the queue again to retrieve provider evidence.
-   Delivery status must reflect that evidence; a missing receipt is not success.
-7. For internal reminders, give an active board test account a real allowlisted
-   inbox. Assign the fictional donor and follow-up to that same board member, with
-   a deadline today or within three days. Review/enable the fixed internal reminder
-   template in the policy. Repeat queue processing and confirm one message/window.
+5. In Outreach, review the donor recipient, subject and message. Only after
+   separate approval for one real test, choose Approve & Send Email and confirm.
+   A changed recipient or message revision requires another review.
+6. Expect Accepted by email provider with delivery pending. Check the inbox and
+   provider dashboard. Check delivery status retrieves provider evidence without
+   sending again. A sending-only key cannot retrieve delivery receipts.
+7. For one internal test, use Settings → Outreach settings → Send ONE TEST board
+   reminder. Enter an explicitly allowlisted inbox and approve only that test.
+   This creates no donor or task and does not enable scheduling. Normal task
+   reminders continue to use the assigned board account's actual email address.
 8. Disable the test policies or delivery mode after rehearsal. Do not enable live
    donor automation as a side effect of a successful test.
 

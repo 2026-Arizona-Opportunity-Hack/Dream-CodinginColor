@@ -1,4 +1,8 @@
-# ColorLoop release handoff — November 14, 2026 (Arizona)
+# ColorLoop release handoff: November 14, 2026 (Arizona)
+
+Historical implementation notes. For the current production checks and demo plan,
+see [the final pre-demo audit](FINAL-PRE-DEMO-AUDIT.md). Earlier test counts,
+database state and deployment limits below describe their original checkpoints.
 
 Current UX review update: the Neon demo is now populated (4 donors, 5 completed
 USD gifts totaling $2,600). Do not import either demo CSV into it again as new gifts.
@@ -122,7 +126,7 @@ Only these declared simulation rows are marked completed; no real payment is cla
 4. In the private window, sign in with the demo account. Confirm its password, click
    Create enrollment QR, scan it in an authenticator app, enter a fresh six-digit
    code and click Enable 2FA. Save its recovery codes offline, then acknowledge
-   I saved my codes — Continue. Never record the QR/codes/password on screen.
+   I saved my codes. Continue. Never record the QR/codes/password on screen.
 5. The board account may start on Follow-ups. Its menu should show Board member;
    Security should show Authenticator 2FA Enabled. Sign out and sign in again with
    a fresh TOTP code. Keep the administrator window unchanged for importing/reports.
@@ -216,7 +220,7 @@ origin is exact. Do not enable previews against this live database casually. All
 instances accessing its encrypted factors must use the same matching key. Changing
 an environment variable affects new deployments, not existing instances.
 
-## Beginner deployment steps — execute only after approval
+## Beginner deployment steps: execute only after approval
 
 Only a Hobby account is available. Vercel's limits page excludes organization-owned
 Git repository connections on Hobby, while its Git page describes narrower private

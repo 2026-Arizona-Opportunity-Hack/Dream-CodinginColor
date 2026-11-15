@@ -1,4 +1,4 @@
-# Mentor backend handoff — Laptop 1
+# Mentor backend handoff: Laptop 1
 
 Integration update: both mentor branches are combined on `integration/mentor-final`.
 See [final integration results](MENTOR-FINAL-INTEGRATION.md) for current validation.

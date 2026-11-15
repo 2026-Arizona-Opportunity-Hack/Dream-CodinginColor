@@ -20,7 +20,7 @@ export function createApiClient(fetcher = globalThis.fetch, {onUnauthorized=()=>
       if(error.code==='MFA_REQUIRED'&&typeof window!=='undefined')window.dispatchEvent(new Event('colorloop:mfa-required'));
       throw error;
     }
-    if (!Object.hasOwn(result,'data')) throw new Error('The server returned an unsupported response.');
+    if (!Object.hasOwn(result,'data')) throw new Error('The server response is missing expected data. Reload the page and try again.');
     if(path==='/auth/login'||path==='/auth/logout'||result.data?.sessionChanged)clearSession();
     if (result.data?.csrfToken) csrfToken = result.data.csrfToken;
     return result.data;

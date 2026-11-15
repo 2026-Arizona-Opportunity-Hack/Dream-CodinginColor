@@ -1,267 +1,242 @@
-# Dream — Coding in Color
+# ColorLoop | Coding in Color
 
-Built at [ASU Fall Hackathon 2026 | Phoenix Hackathon for Nonprofits: Nov 14-15](https://www.ohack.dev/hack/fall-2026) for the public good (MIT license).
+ColorLoop helps Coding in Color keep donor relationships organized across
+spreadsheets, giving platforms and board members. It brings giving history,
+relationship owners, follow-ups and human-approved outreach into one workspace.
 
-> **⚠️ This is your team's ONE repository — all code goes here.** Please don't create
-> another repo (personal or org). Judges, the Team Dashboard's code-activity card,
-> the public project page and the nonprofit all read **this** repo; work pushed
-> anywhere else is invisible to them and won't count. Everyone on the team should be
-> a collaborator here — ask an organizer in Slack if someone can't push.
+Built by Team Dream at [Opportunity Hack Fall 2026](https://www.ohack.dev/hack/fall-2026)
+for **Problem B: Donor Management**. [Coding in Color](https://www.ohack.dev/nonprofit/YIXYdYCoxIZC08uQ5DL3)
+is an Arizona nonprofit developing the future digital workforce through digital
+skilling, computer science and artificial intelligence education.
+[Original problem statement](https://www.ohack.dev/project/e26932c0df1b11f189a8dead68f07eb5).
 
-| | |
-|---|---|
-| **Nonprofit** | [Coding in Color](https://www.ohack.dev/nonprofit/YIXYdYCoxIZC08uQ5DL3) |
-| **Problem statement** | [Donor & Funder Relationship Platform (CIC Problem 2)](https://www.ohack.dev/project/e26932c0df1b11f189a8dead68f07eb5) |
-| **Team page** | [Dream](https://www.ohack.dev/hack/fall-2026/team/ba4e3dd0e05611f1b598deadb145c312) · [Team Dashboard](https://www.ohack.dev/hack/fall-2026/manageteam) (story, demo video, submit) |
-| **Slack** | team: [#dream](https://opportunity-hack.slack.com/app_redirect?channel=dream) · nonprofit: [#npo-coding-in-color](https://opportunity-hack.slack.com/app_redirect?channel=npo-coding-in-color) · help: [#ask-a-mentor](https://opportunity-hack.slack.com/archives/C01E5CGDQ74) |
-| **Created by** | Oumar Yassir |
+All project code belongs in this repository. Judges, the Team Dashboard and the
+nonprofit use it as the source of record. Keep contributors here; do not create a
+second project repository. The project is open source under the [MIT license](LICENSE).
 
-## Final day
+## Live application
 
-Start recording your demo video by **Sun Nov 15, 12:00 PM MST** — hacking ends at **Sun Nov 15, 2:00 PM MST**, and a demo you recorded with time to spare beats a feature you finished at 1:59.
+[Open ColorLoop](https://colorloop-nu.vercel.app).
 
-- Sun Nov 15, 11:00 AM MST — Presentation Feedback Hour
-- **Sun Nov 15, 12:00 PM MST — Start recording your demo video**
-- Sun Nov 15, 12:30 PM MST — Judges Arrive
-- **Sun Nov 15, 2:00 PM MST — 🛑 Submission Deadline: Hacking ends**
-- Sun Nov 15, 2:05 PM MST — Judging Round 1
-- Sun Nov 15, 3:40 PM MST — Judging Final Round
-- Sun Nov 15, 4:30 PM MST — Closing Ceremony: Winners Announced
+The public sign-in screen, assets, API access guards and aggregate reporting API
+were checked read-only. Authenticated workflows were tested locally with isolated
+PostgreSQL; they were not independently repeated against production. The operator
+reports that production login and mandatory MFA work.
 
-## Before hacking ends — the submission checklist
+## Demo video
 
-Everything is submitted from your [Team Dashboard](https://www.ohack.dev/hack/fall-2026/manageteam); judges read the dashboard, this README and your demo video.
+**Pending: add the final four-minute demo video URL before submission.**
 
-- [ ] **Code pushed** to this repo, in small PRs (see `AGENTS.md`) — judges and future recruiters read the history
-- [ ] **Project story** written on the dashboard (`#project`): the problem, who it helps, what you built, what's next
-- [ ] **Demo video** (4 minutes or less) on YouTube, Vimeo, Loom or Google Drive, linked on the dashboard (`#demo`) — show it working, not slides
-- [ ] **Submit** on the dashboard (you can keep editing until the close)
-- [ ] This README filled in below: team, tech stack, how to run it, live link if you have one
-- Optional: a [DevPost entry](https://opportunity-hack-2026-arizona.devpost.com/) — the dashboard is the submission of record.
+Use the [final rehearsal, click-by-click script and judge Q&A](docs/FINAL-DEMO-REHEARSAL.md).
+It distinguishes the production website from isolated demo evidence. Do not reset
+shared production records or send real emails for a recording without approval.
 
-Judges score **Scope, Documentation, Polish and Security**, plus a separate **Accessibility** prize — the rubric is at [ohack.dev/hackathon-judging-criteria](https://www.ohack.dev/hackathon-judging-criteria). Document your work as GitHub Issues as you go: that's how you get public credit for it.
+## Features
 
-## Team
+| Requirement | What works | Scope or remaining setup |
+| --- | --- | --- |
+| CSV/XLSX imports | Editable mapping, row validation, campaign review, recognized board-contact approval and import history | Zeffy sample headings and synthetic exports are tested. Benevity supports explicit mapping; full provider export compatibility is not certified. |
+| Deduplication | Cross-source identity matching, server-issued merge previews, identity confirmation and audited merges | Names alone are not proof of identity. Stable source/transaction IDs prevent repeated gifts; conflicting identities require review. |
+| Donor profiles | Contact details, separate organization/employer/contact-person fields, gift history and categorized activity timeline | Manual cash/check gifts and optional initial gifts use the validated gift ledger and retry protection. Donors can exist without gifts. |
+| Relationship owners | Reviewed imported contacts, least-loaded assignment with fair tie rotation and admin overrides | Owners must be genuine active board accounts. Board users see only authorized donors and related work. |
+| Follow-ups | Searchable donor selection, assigned next step, deadline, open/completed status and due/overdue views | Quarterly donor update drafts/tasks and board summaries can be prepared. Scheduled preparation needs protected job configuration. |
+| Thank-you and follow-up outreach | Templates, editable drafts, exact-recipient/revision review and Approve & Send Email through Resend | Consent, opt-outs, suppression, test allowlists and CIC activation gates remain enforced. Manual handoff is an optional fallback; SMS has no integrated provider. |
+| Send history | Recipient, approver, timestamp, provider ID, acceptance/failure and confirmed delivery status | Provider acceptance is not delivery. Two separately approved local test emails were received and marked Delivered by the operator; this is not production delivery verification. |
+| Retention analytics | Matched year-over-year donors, new/returning/reactivated/increased/decreased/lapsed categories and drill-down | Uses verified completed USD gifts and available history. Missing historical data is not inferred. |
+| Lapsed Donor Radar (chosen P1) | Outreach → Needs attention → Matched giving cycle → Prepare check-in and follow-up | Prior-year matched year-to-date giving with no current-year gift; current-year lapses are provisional. Configurable inactivity is a separate view. Default board roles lack reporting permission; assigned profiles, drafts and tasks remain scoped. |
+| Funder export | Donor gift history and staff-verified funded outcome evidence in a printable report/PDF | Outcome evidence must be entered and verified; giving alone does not establish program impact. |
+| Aggregate read API | Key-authenticated totals/recent activity grouped by period, program and board member; OpenAPI 3.1 | Read-only reporting key stays server-side. CIC's external dashboard integration is not demonstrated. |
+| Organization settings | Custom-field add/edit/hide/deactivate, campaigns, accounts, roles and permission controls | Archiving preserves history. The UI does not arbitrarily redefine core database columns or permission capabilities. |
 
-<!-- Replace with real people; link GitHub profiles so this repo works as your portfolio -->
-- [Name](https://github.com/username) — role
-- [Name](https://github.com/username) — role
+Zeffy remains a donation intake source and Benevity a corporate-giving import/export
+source. ColorLoop manages the relationships and reporting around those records; it
+does not process payments or replace either platform.
 
-## What we built
+## Security
 
-ColorLoop combines Coding in Color's donor records, CSV/XLSX imports, reviewed
-merges, board assignments, relationship timelines, follow-up tasks, human-approved
-outreach, Lapsed-Donor Radar, retention analytics, and printable funder reports.
-Accounts, sessions, permissions, activities, tasks, drafts, approval/delivery
-history and audit events now use normalized PostgreSQL tables. The CIC frontend
-uses the shared API contracts with secure cookies and CSRF tokens.
+- Passwords use scrypt. Opaque server-side sessions use Secure, HttpOnly,
+  SameSite cookies. Writes require same-origin CSRF validation.
+- Authenticator-based TOTP is mandatory. Enrollment QR codes are generated locally;
+  secrets are encrypted with AES-256-GCM and recovery codes are hashed and single use.
+  Password/factor changes require reauthentication. Preserve the MFA encryption key
+  when redeploying; rotation requires a reviewed plan to preserve account access.
+- Server-side role and donor-assignment checks protect donor PII. Board members
+  cannot access another owner's donors by changing a URL or calling the API directly.
+- Donor-facing sends require a permitted human's approval of the current message
+  revision and recipient, plus valid consent and suppression checks. Transactional
+  claims and provider idempotency keys prevent repeat sends.
+- Email transport and unattended sending default off in code. Test mode requires an
+  explicit verified-inbox allowlist and blocks reserved synthetic addresses without
+  redirecting them. Live donor automation additionally requires CIC approval.
+- Static builds expose only allowlisted assets. Server files, migrations, credentials
+  and local `.env` files are excluded and checked by the packaging verifier.
 
-The full stack has been tested with an isolated PostgreSQL engine and real local
-HTTPS/Chrome. Live Neon migrations, hosted Vercel deployment, and real message
-delivery have not been performed. Provider delivery stays disabled by default.
+These are implemented controls and test results, not compliance certifications.
+Never commit credentials, MFA keys, real donor records or private deployment metadata.
+The [secret guard](.claude/hooks/guard-secrets.sh) must remain enabled.
 
-## Mentor UX update
+## Technology stack
 
-The `feature/mentor-ux` frontend follows the supplied mentor PDF: an actionable
-Today queue, linkable donor profiles, donor-specific quick actions, readable
-import review, explicit outreach approval/handoff, and mobile bottom navigation.
-The `integration/mentor-final` branch combines backend `85b1985` and frontend
-`8df801d`. No merge into main or deployment has been performed. See the
-[final integration results](docs/MENTOR-FINAL-INTEGRATION.md).
-See the [recommendation matrix and validation](docs/MENTOR-UX-IMPLEMENTATION.md)
-and [Laptop 2 handoff](docs/MENTOR-UX-HANDOFF.md). Local validation measured
-Lighthouse accessibility 100 on 19 views and passed 75 responsive/keyboard views.
+- HTML, CSS and browser JavaScript; CIC green branding, responsive navigation and
+  accessible forms/dialogs. No frontend framework.
+- Node.js **22.x**, ES modules, Vercel static hosting and five consolidated Functions.
+- Neon PostgreSQL with connection-bound transactions and ordered SQL migrations.
+- `csv-parse`, `read-excel-file` and `fflate` for bounded spreadsheet parsing.
+- `otpauth` and `qrcode` for TOTP and local enrollment; Node crypto for passwords,
+  sessions and encrypted factors.
+- Resend HTTP API for optional approved email delivery.
+- PGlite for disposable local PostgreSQL tests/demos; Node's test runner and Chrome
+  for regression and browser checks.
 
-## Tech stack
+## Setup and development
 
-- Vanilla HTML/CSS/JavaScript with CIC branding and keyboard-accessible dialogs
-- Node.js 22+ ES modules and Vercel Functions
-- Neon PostgreSQL, connection-bound transactions, additive SQL migrations
-- `csv-parse` and bounded `read-excel-file`/`fflate` XLSX parsing
-- Node scrypt, opaque durable sessions, CSRF tokens and server-side RBAC
-- Mandatory authenticator TOTP (`otpauth`), local QR generation (`qrcode`),
-  AES-256-GCM encrypted secrets and single-use hashed recovery codes
-- Development-only PGlite for isolated synthetic SQL tests and demos
+Use Node.js 22.x and install the locked dependencies:
 
-## Run a safe synthetic demo
-
-```bash
+```sh
 npm ci
 mkdir -p node_modules/.cache/colorloop
 openssl req -x509 -newkey rsa:2048 -nodes -days 7 -subj /CN=localhost \
   -keyout node_modules/.cache/colorloop/tls.key \
   -out node_modules/.cache/colorloop/tls.crt
-cp .env.example .env
+test -e .env || cp .env.example .env
 ```
 
-In your ignored `.env`, set `COLORLOOP_DEMO=true`, a local `DEMO_PASSWORD` of at
-least 15 characters containing uppercase/lowercase letters, a number and a special
-character, `APP_ORIGIN=https://localhost:3000`, and the TLS paths shown
-in `.env.example`. Then run `npm run dev` and open https://localhost:3000.
-Accept the local development certificate warning for this synthetic demo only.
-Sign in as `admin@example.test` with your chosen demo password.
-Confirm your password, scan the private QR with an authenticator app, enter its
-six-digit code, and save your recovery codes offline. Enrollment is mandatory.
+Never overwrite an existing `.env`, database URL or MFA key. Refer to
+[.env.example](.env.example) for variable names and placeholder values.
+For a new local synthetic demo configuration, use `COLORLOOP_DEMO=true`,
+`APP_ORIGIN=https://localhost:3000`, the certificate/key paths above in
+`LOCAL_TLS_CERT`/`LOCAL_TLS_KEY`, and a private `DEMO_PASSWORD` of at least 15
+characters with uppercase/lowercase letters, a number and a special character.
+Keep `EMAIL_DELIVERY_MODE=disabled`, `EMAIL_CRON_ENABLED=false` and
+`CIC_DONOR_AUTOMATION_APPROVED=false`. Then run:
 
-Demo mode creates a fresh in-memory PostgreSQL database with synthetic accounts,
-donors and verified synthetic gifts each run. It never connects to Neon, even if
-`DATABASE_URL` exists. It is rejected in production/on Vercel. Secure cookies stay
-enabled. See the [demo walkthrough and integration guide](docs/INTEGRATION.md).
+```sh
+npm run dev
+```
 
-When signed out, ColorLoop shows a dedicated sign-in page. The workspace stays
-hidden until the server verifies both password and second factor. The account
-dropdown shows your real name, email, role and status. My Profile saves your name;
-Security changes passwords, regenerates recovery codes and resets authenticators
-after password-and-factor reauthentication. Account Settings saves preferences
-and gives administrators account-request review and audited MFA recovery controls.
-Email and role edits remain administrator-managed.
-Session expiry returns to sign-in and clears the visible workspace.
-See [authentication and import operations](docs/AUTHENTICATION-IMPORTS.md).
+Open https://localhost:3000, accept the local development certificate warning only
+for this demo, sign in as `admin@example.test` with the chosen password, and complete
+mandatory authenticator enrollment. Keep the QR and recovery codes off recordings.
 
-## Neon setup and authentication
+Demo mode creates synthetic accounts, donors and gifts in a fresh in-memory SQL
+database. It never connects to Neon even if a database URL exists, and is rejected
+on Vercel/production. Restarting loses its data and enrollment. It is not a reset
+of the existing Dream account on the production website. The exact-file empty-start
+rehearsal below uses a separate isolated fixture instead of those seeded donors.
 
-Keep `COLORLOOP_DEMO=false` and omit `COLORLOOP_STORE=mock` for persistent use.
-Configure the server-only `DATABASE_URL`, exact HTTPS `APP_ORIGIN`, and a stable
-private `MFA_ENCRYPTION_KEY` (32 random bytes encoded as base64). Review
-the ordered migrations and historical identity reconciliation before applying them. No command
-below has been run against a live database during integration:
+For persistent use, set `COLORLOOP_DEMO=false`, omit `COLORLOOP_STORE=mock`, and
+configure private `DATABASE_URL`, exact HTTPS `APP_ORIGIN` and stable
+`MFA_ENCRYPTION_KEY` (32 random bytes encoded as base64).
+Review [migration and identity-upgrade guidance](docs/PREMERGE-FIXES.md) before any
+shared schema change. Nothing migrates or seeds automatically:
 
 - `npm run db:check`: explicit read-only connection check.
-- `npm run db:migrate`: apply additive migrations atomically with checksum tracking.
-- `BOOTSTRAP_ADMIN=true node scripts/bootstrap-admin.js`: explicit operator account
-  bootstrap, using private `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` values.
-  Requires an empty account store; remove the bootstrap password afterward.
+- `npm run db:migrate`: applies reviewed additive migrations atomically with checksums.
+- `BOOTSTRAP_ADMIN=true node scripts/bootstrap-admin.js`: operator-only bootstrap for
+  an empty account store using private `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`.
+  Remove the bootstrap password afterward. Do not run this against an existing account store.
 
-Production session/retention storage fails closed when unavailable. There is no
-public self-activation or default production password. Sign Up creates a pending
-request; an administrator must approve a non-administrator role before sign-in
-and mandatory authenticator enrollment. Donor-facing messages remain
-unsent without an explicitly integrated provider.
+Sign Up creates a pending request. An administrator approves a non-administrator role
+before the user can sign in and enroll MFA. Unavailable persistent storage fails
+closed. See [authentication and import operations](docs/AUTHENTICATION-IMPORTS.md).
 
-## Verification
+## Testing
 
-```bash
-RUN_NEON_TESTS=false npm test
+```sh
+EMAIL_CRON_ENABLED=false EMAIL_DELIVERY_MODE=disabled RUN_NEON_TESTS=false npm test
+npm run build
 npm audit
 npm audit --omit=dev
-npm run build
 node scripts/smoke-integration.mjs
 node scripts/smoke-browser.mjs
 node scripts/audit-frontend.mjs
 ```
 
-The two smoke scripts use only synthetic isolated SQL and temporary HTTPS
-certificates. Browser checks require local Chrome (override `CHROME_PATH` when
-needed). No Vercel CLI or new package is needed. The live Neon test remains opt-in.
-Both npm audits reported zero vulnerabilities during integration.
+The final pre-demo audit recorded **200 passed, 0 failed, 1 skipped**. The skipped
+test requires explicit live-Neon opt-in. HTTPS/Chrome tests use synthetic isolated
+SQL, genuine MFA and mocked provider responses; they send no real emails. Browser
+checks require installed Chrome (`CHROME_PATH` can override its location).
+After the approved organization-reimport fix, the full suite passed **202 tests,
+0 failed, 1 skipped**, including two new classification and retry regressions.
 
-## Verified pre-merge fixes
+Local evidence includes 100 Lighthouse accessibility on 19 authenticated views,
+75 responsive/keyboard views, zero vulnerabilities in both dependency audits, and
+a fresh isolated Vercel build with five Node 22 functions and 43 verified routes.
+This does not establish authenticated production accessibility or hosted email delivery.
+See the [full audit and evidence scope](docs/FINAL-PRE-DEMO-AUDIT.md).
 
-See [pre-merge fixes, safe upgrade and hosting decision](docs/PREMERGE-FIXES.md).
-Merges preserve verified funder evidence and its original attribution. Account
-forms use safe role defaults and require administrator confirmation, enforced by
-the backend. New compatibility migrations preserve unresolved historical user
-references without inventing accounts; existing migration checksums are unchanged.
+The exact original file can be rehearsed without modifying it or connecting to Neon:
 
-`npm run build` produces only `dist/index.html` and `dist/public/...`.
-The shared API dispatcher reduces the frameworkless Vercel function count from
-33 to **five**, preserving existing URLs and methods. A real local Vercel CLI
-build and compiled-output verification pass; no hosted deployment was performed.
-Node is pinned to 22.x. The authentication feature adds the approved pinned
-`otpauth` and `qrcode` dependencies.
+```sh
+node scripts/rehearse-final-demo.mjs /absolute/path/colorloop_demo_ZEFFY_with_OHacks.csv
+```
 
-## CIC requirements implementation
+The rehearsal starts empty isolated SQL, uses Chrome's actual file upload, and checks
+import, merge, exact-file reimport, approval-only outreach, tasks and Lapsed Donor
+Radar. Results and screenshots are written under the OS temporary directory.
+See [latest rehearsal results and known blockers](docs/FINAL-DEMO-REHEARSAL.md).
+`npm run build` outputs only `dist/index.html` and `dist/public/...`.
+A stale root `.vercel/output` must not be deployed with `--prebuilt`; any approved
+release needs a fresh linked-project build. Isolated packaging fixtures are not deploy targets.
 
-The [final readiness checkpoints](docs/final-readiness-checklist.md) track the
-remaining approved improvements. Add Donor can optionally record an initial
-cash/check/offline gift in the same transaction, using the existing validated gift
-service and retry protection. Leaving the amount blank creates only the donor.
-Organization, employer and human contact are separate fields. Import classification
-suggestions require review; equal donor workloads rotate fairly, and unambiguous
-board contacts can be approved together.
+## Team
 
-Optional [real email delivery and board reminders](docs/EMAIL-OPERATIONS.md) reuse
-the approved-draft and delivery-history workflow. Outreach's **Approve & Send Email**
-action binds human review to the exact donor recipient and message revision, then
-immediately sends through Resend. History distinguishes provider acceptance from
-confirmed delivery; manual handoff remains an optional fallback. Transport and activation policies
-are OFF by default. Local/demo mail requires real verified test inboxes; synthetic
-addresses are blocked. Resend accepted one explicitly approved test thank-you and
-one board reminder; duplicate queue/job runs made no additional send requests.
-The operator confirmed both in the Inbox and both Delivered in Resend; details
-are recorded in the email operations guide. Migrations 008–010 are additive and
-require review before shared application; no shared migration runs
-automatically. SMS remains a manual handoff. Live donor activation requires CIC approval.
-Vercel function bundles explicitly exclude local `.env*` files; the compiled-output
-verifier checks this in addition to the public static allowlist.
+Team Dream. The following roles were supplied by the team representative and remain
+**subject to the team's confirmation** before submission.
 
-Backend support for the mentor workflows includes guarded manual donor/gift entry,
-server-issued merge previews, confirmed source aliases, and paginated read APIs.
-See [backend contracts and Laptop 1 integration](docs/MENTOR-BACKEND-CONTRACTS.md).
-The [OpenAPI 3.1 specification](docs/openapi-readonly.json) is also available at
-`GET /api/v1/openapi`. The frontend must submit the server preview ID and explicit
-identity confirmation before a merge; the old client-only preview cannot authorize
-one. Organization/contact-person fields require additive migration 008; review it
-before applying to a shared database. No shared migration runs automatically.
+| Contributor | Proposed role | Responsibilities supplied by the team |
+| --- | --- | --- |
+| Shorya Azriel Moses | Full-Stack Developer & Deployment Lead | Application architecture, donor management workflows, database integration, authentication, deployment and testing. |
+| Oumar Yassir | Frontend Developer & UX Lead | Dashboard, donor profiles, responsive interface, follow-ups and outreach UI. |
+| Abbhijit Venkatachalam | Backend Developer & Data Integration Lead | CSV/XLSX imports, Zeffy/Benevity mappings, donor deduplication, retention analytics, reporting API and funder exports. |
 
-See the [requirements matrix and four-minute demo](docs/CIC-REQUIREMENTS.md),
-[dashboard API integration](docs/DASHBOARD-API.md), and
-[deployment/cost checklist](docs/DEPLOYMENT-READINESS.md).
+[Team page](https://www.ohack.dev/hack/fall-2026/team/ba4e3dd0e05611f1b598deadb145c312) ·
+[Repository contributors](https://github.com/2026-Arizona-Opportunity-Hack/Dream-CodinginColor/graphs/contributors).
 
-Imports preserve automatic mappings and expose separate names, primary/secondary
-email, phone, company, campaign, board contact and custom fields. Phoenix local
-and Excel dates are supported. Missing currency/status requires explicit review;
-unknown gifts stay outside verified reports. Stable source/transaction IDs reuse
-the original gift, and imported ownership requires review against genuine accounts.
+## Current limitations
 
-Campaign approvals are grouped by normalized name, with optional row exceptions.
-Follow-ups search donors by name/email and can be assigned to the current staff
-member. Readable board filters, linked-gift outreach details, localized timelines,
-responsive tables and contextual empty states support the mentor demo. See the
-[local UX polish review and validation](docs/UX-POLISH.md).
+- Full Zeffy/Benevity provider export compatibility is not certified.
+- Production email transport is not configured in the inspected Vercel variable
+  listing; authenticated hosted delivery has not been verified.
+- Scheduled board reminders need an approved internal template/policy, transport,
+  `CRON_SECRET`, `AUTOMATION_USER_ID` and deployed URL. Keep unattended sending off
+  until activation is explicitly approved. Default code flags are not proof of private runtime values.
+- No safe production Reset Demo is available: records are shared and lack a verified
+  synthetic dataset boundary. Test-like names are not deletion authorization.
+- Radar has no snooze/dismiss action. Voice debriefs, Meet/Gemini extraction,
+  calendar-aware next steps, AI-written updates and grant deadlines are not implemented.
+- Core schema customization, SMS provider delivery, external CIC dashboard integration
+  and production concurrency/load testing remain outside the verified demo scope.
 
-Verified gifts prepare idempotent thank-you drafts. Daily authenticated preparation
-creates separate quarterly donor updates/tasks, board assignment summaries and
-overdue reminders. Production scheduling needs a real preparation account and
-server-only `CRON_SECRET`/`AUTOMATION_USER_ID`. It sends no messages by default;
-unattended sending also requires `EMAIL_CRON_ENABLED=true` and separately approved
-email policies. Keep that switch false and live donor automation OFF until
-activation is explicitly approved. See the [email deployment and demo handoff](docs/EMAIL-DEPLOYMENT-HANDOFF.md)
-for recipient routing, Vercel settings, Phoenix scheduling and verified tests.
+## Nonprofit handoff and submission
 
-Manual handoff locks an approved, consent-checked revision and records `handed_off`.
-A separate evidence-backed human attestation records a human-reported send. No
-SMS provider delivery has been verified. The optional Resend rehearsal and its
-approval gates are described above. Communication
-history and gifts appear on the donor profile. Board accounts are restricted on
-the backend to their assigned donors and related work. Role retirement reassigns
-accounts, revokes sessions and retains audit/history.
+Coding in Color should retain the repository, Vercel/Neon ownership and secrets in
+organization-controlled accounts. Preserve the MFA key, review database backups and
+additive migrations, and keep delivery policies disabled until CIC approves them.
+Use GitHub Issues to track changes and keep code in this repository.
 
-Retention reports show the donors behind each category. Cycle-based radar uses
-matched year-to-date windows; configurable inactivity radar remains a separate
-view. Profile-launched funder packets include full multi-year verified giving and
-staff-recorded outcome evidence without inferring impact from donations.
+Start with [deployment readiness](docs/DEPLOYMENT-READINESS.md),
+[release handoff](docs/VERCEL-RELEASE-HANDOFF.md),
+[email operations](docs/EMAIL-OPERATIONS.md),
+[email deployment settings](docs/EMAIL-DEPLOYMENT-HANDOFF.md),
+[backend contracts](docs/MENTOR-BACKEND-CONTRACTS.md), and the
+[reporting API guide](docs/DASHBOARD-API.md) / [OpenAPI specification](docs/openapi-readonly.json).
+The [requirements matrix](docs/CIC-REQUIREMENTS.md) records acceptance criteria.
+Historical teammate handoffs may describe earlier branches.
 
-A real Lighthouse 13.0.1 audit measured **100 accessibility on all seven main
-screens**. [Measured summary](artifacts/accessibility/summary.json); full local
-HTML/JSON reports are retained under the same directory. Keyboard/visual checks
-remain separate. Hosted routing, Neon connectivity/concurrency, Vercel ingress
-identity, actual provider samples, budget eligibility and final deployment still
-require authorized external verification. Local Vercel metadata is synthetic;
-replace it through authorized CIC project linking before deployment.
+Record by November 15 at **12:00 PM MST** and submit by **2:00 PM MST**.
+On the [Team Dashboard](https://www.ohack.dev/hack/fall-2026/manageteam):
 
-All code stays in this repository. Never commit `.env`, credentials, real donor
-records, or local Vercel project credentials. Historical teammate handoff documents
-may describe older branches; the requirements matrix above describes current work.
+- [ ] Confirm the listed contributor roles.
+- [ ] Add the project story.
+- [ ] Add the final video URL (four minutes or less) to the dashboard and README.
+- [ ] Review and approve intended release changes; do not deploy stale build output.
+- [ ] Click Submit before the deadline.
 
-## Links
-
-- Live demo:
-- Demo video:
-- Design / docs:
-
-## After the hackathon
-
-Winning teams finish the project with the nonprofit — the [Definition of Done](https://www.ohack.dev/about/completion) (deployed, nonprofit sign-off, docs, open source) is tracked on your team page. Keep the repo public and the README honest; recruiters do read these.
-
-Need a hand this weekend? [#ask-a-mentor](https://opportunity-hack.slack.com/archives/C01E5CGDQ74) on Slack, or ask in [#dream](https://opportunity-hack.slack.com/app_redirect?channel=dream) and a mentor will drop in.
+Judges score scope, documentation, polish and security, with an accessibility prize:
+[judging rubric](https://www.ohack.dev/hackathon-judging-criteria).
+After the event, use the nonprofit's [Definition of Done](https://www.ohack.dev/about/completion)
+for sign-off and maintenance. Questions go to
+[#npo-coding-in-color](https://opportunity-hack.slack.com/app_redirect?channel=npo-coding-in-color),
+[#dream](https://opportunity-hack.slack.com/app_redirect?channel=dream), or
+[#ask-a-mentor](https://opportunity-hack.slack.com/archives/C01E5CGDQ74).
