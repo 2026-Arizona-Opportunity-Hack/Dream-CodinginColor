@@ -31,6 +31,12 @@ test('real Resend request contract uses server credential, plain text and stable
  await assert.rejects(provider.sendEmail({...payload,subject:'Unsafe\nHeader'}),{code:'EMAIL_INPUT_INVALID'});
  await assert.rejects(provider.getStatus('../private'),{code:'EMAIL_ID_INVALID'});
 });
+test('Resend default sender is permitted only for test delivery; simulated recipients remain blocked',async()=>{
+ let calls=0;const provider=createEmailProvider({env:{...env,EMAIL_FROM:'onboarding@resend.dev'},fetcher:async()=>{calls++;return response({id:'synthetic-default-sender'});}});
+ assert.equal((await provider.sendEmail(payload)).status,'accepted');assert.equal(calls,1);
+ await assert.rejects(provider.sendEmail({...payload,to:'delivered@resend.dev'}),{code:'EMAIL_RECIPIENT_BLOCKED'});assert.equal(calls,1);
+ assert.throws(()=>createEmailProvider({env:{...env,EMAIL_FROM:'onboarding@resend.dev',EMAIL_DELIVERY_MODE:'live',NODE_ENV:'production'}}),{code:'EMAIL_UNCONFIGURED'});
+});
 test('rate limits are definitively unsent; ambiguous transport failures are sanitized and never claim success',async()=>{
  const limited=createEmailProvider({env,fetcher:async()=>response({message:'private provider detail'},429)});
  await assert.rejects(limited.sendEmail(payload),e=>e.code==='EMAIL_RATE_LIMITED'&&e.definitelyNotSent&&e.retryable&&!e.message.includes('private'));

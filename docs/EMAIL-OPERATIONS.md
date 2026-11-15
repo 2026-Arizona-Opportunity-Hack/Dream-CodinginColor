@@ -1,9 +1,27 @@
 # Approved email delivery and board reminders
 
-Real Resend REST transport is implemented, but **no real provider request or email
-has been sent during implementation**. Credentials, a verified sender and verified
-test inboxes are absent locally. All delivery tests inject a fake HTTP transport;
-their receipts prove application behavior, not external delivery.
+Real Resend REST transport is implemented. Local credentials and an operator-owned
+test inbox are configured; read-only provider requests confirm a sending-only key.
+That key cannot retrieve receipts, so delivery must currently be checked in the
+Resend dashboard and actual inbox. Automated tests inject HTTP transport; their
+receipts prove application behavior, not external delivery. Real rehearsal sends
+require separate operator approval for each message.
+
+On November 15, 2026, the operator separately approved one real synthetic thank-you
+and one real board reminder to the sole allowlisted inbox. Resend accepted both.
+The thank-you queue rerun and board job rerun each made zero additional send
+requests. The operator confirmed both messages arrived in the Inbox and both show
+Delivered in the Resend dashboard. This is operator-confirmed external delivery;
+the sending-only key cannot independently retrieve that evidence. Application
+history truthfully remains `sending` then `queued`, rather than claiming a receipt
+it could not retrieve. Both disposable rehearsal
+policies were disabled after sending; live donor automation remains disabled.
+The board rehearsal verified a one-shot timer invoking the protected job and its
+unauthenticated rejection. No hosted recurring scheduler has been activated.
+The full automated suite passed: 180 passed, zero failed, one live-Neon check
+skipped. All 16 focused provider/automation tests passed. Real follow-up emails
+were not sent; that path was covered with injected provider transport, preserving
+the approval scope of exactly two real emails.
 
 ## Safe defaults and approval
 
@@ -38,7 +56,10 @@ has not been obtained or assumed by this implementation.
 Review additive migrations **008, 009 and 010** in order before using new features
 against persistent storage. They add organization/contact fields, truthful provider
 receipt states, and an OFF-by-default JSON activation policy. Existing migrations
-are unchanged. **None of these has been applied to shared Neon in this task.**
+are unchanged. **008–010 were applied to the configured shared Neon database on
+November 15, 2026, with explicit database-specific approval.** Account, donor,
+donation, message and task counts were unchanged; existing MFA data was unchanged.
+The new email activation policy remains OFF in that database.
 Do not reset, seed or replace the database. Preserve `DATABASE_URL` and the existing
 `MFA_ENCRYPTION_KEY`. Apply shared migrations only with explicit database approval.
 
@@ -49,7 +70,7 @@ the policy reason field:
 | --- | --- |
 | `EMAIL_DELIVERY_MODE` | `disabled` initially; `test` for verified-inbox rehearsal; `live` only for authorized production |
 | `RESEND_API_KEY` | Server-only credential permitting sending and receipt retrieval |
-| `EMAIL_FROM` | Plain email address on a sender/domain verified with Resend |
+| `EMAIL_FROM` | Plain verified sender address; Resend's default onboarding sender is accepted only in effective test mode |
 | `EMAIL_TEST_INBOXES` | Comma-separated real inboxes whose ownership the operator has independently verified; exact addresses only |
 | `APP_ORIGIN` | Exact HTTPS ColorLoop origin, used in authorized task links |
 | `CRON_SECRET` | Existing random preparation-job secret, at least 32 characters |
@@ -62,6 +83,10 @@ verification. Resend sender setup, recipient ownership verification, credentials
 hosted configuration and live acceptance testing remain operator tasks.
 Vercel function packages explicitly exclude `.env*`; production configuration must
 come from server-side deployment environment variables, never a bundled local file.
+Resend's default onboarding sender can send only to the email associated with the
+Resend account. A different recipient requires a verified sending domain. A
+sending-only API key can submit mail but cannot update application delivery states
+from provider receipts; use a dedicated Full access key for automatic polling.
 
 ## Verified-inbox rehearsal after configuration
 
@@ -85,6 +110,18 @@ come from server-side deployment environment variables, never a bundled local fi
    template in the policy. Repeat queue processing and confirm one message/window.
 8. Disable the test policies or delivery mode after rehearsal. Do not enable live
    donor automation as a side effect of a successful test.
+
+`node scripts/rehearse-email.mjs` prepares exactly two reviewed real-mail tests in
+disposable in-memory PostgreSQL. Startup sends nothing. It uses genuine synthetic
+MFA sessions and the existing protected APIs; it never uses the Neon URL or changes
+the configured MFA key. Only after separate operator approvals, enter `SEND
+THANK-YOU` or `SEND BOARD`. Each command permits at most one provider POST to the
+sole allowlisted inbox, reruns the queue/job to check duplicate protection, and
+disables both policies afterward. `STATUS` writes a sanitized receipt/history
+report to `/tmp/colorloop-real-email-rehearsal.json`; `QUIT` closes the disposable
+database. The board command tests the protected job through a one-shot timer.
+Its fictional task link does not resolve in the separate persistent localhost app.
+This rehearsal is not an installed recurring scheduler or a hosted cron test.
 
 ## Scheduling, deduplication and failures
 
