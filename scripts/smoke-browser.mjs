@@ -205,12 +205,18 @@ try{
   await evaluate(`document.querySelector('[data-donor="${donorId}"]').click()`);await wait("document.querySelector('#donor-section')");
   assert.equal(await evaluate("new URLSearchParams(document.querySelector('.back-link').getAttribute('href').split('?')[1]).get('q')"),'Demo Alex');
   await evaluate('history.back()');await wait("document.querySelector('#donor-search')?.value==='Demo Alex'");
-  // Create a real synthetic donor through the enhanced manual-entry form.
+  // Initial gift is optional, saves atomically, and uses the existing gift ledger.
+  await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Add donor').click()");await wait("document.querySelector('#modal').open");
+  await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.name.value='Synthetic Initial Form';f.elements.initial_amount.value='12.34';f.elements.initial_currency.value='USD';f.elements.initial_status.value='completed';f.elements.initial_source.value='check';f.requestSubmit();f.requestSubmit();})()");
+  await wait("!document.querySelector('#modal').open&&document.querySelector('main h1')?.textContent==='Synthetic Initial Form'");
+  const initialFormGift=(await database.query("SELECT g.amount,g.source FROM donations g JOIN donors d ON d.id=g.donor_id WHERE d.display_name='Synthetic Initial Form'")).rows;assert.deepEqual(initialFormGift,[{amount:'12.34',source:'check'}]);
+  await evaluate("location.hash='donors'");await wait("document.querySelector('#donor-search')");
+  // Create a real synthetic donor without an initial gift.
   await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Add donor').click()");await wait("document.querySelector('#modal').open");
   await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.name.value='Synthetic UX manual entry';f.elements.email.value='ux-manual@example.test';f.elements.notes.value='Synthetic independently reviewed identity source';f.requestSubmit();})()");
   await wait("!document.querySelector('#modal').open&&document.querySelector('main h1')?.textContent==='Synthetic UX manual entry'");
   const manualId=(await database.query("SELECT id FROM donors WHERE normalized_email='ux-manual@example.test'")).rows[0].id;
-  await evaluate("[...document.querySelectorAll('.profile-actions button')].find(b=>b.textContent==='Record gift').click()");await wait("document.querySelector('#modal-title').textContent==='Record a gift'");
+  await evaluate("[...document.querySelectorAll('.profile-actions button')].find(b=>b.textContent==='Record gift').click()");await wait("document.querySelector('#modal').open&&document.querySelector('#modal-title').textContent==='Record a gift'");
   await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.amount.value='25.75';f.elements.currency.value='USD';f.elements.status.value='completed';f.elements.donated_at.value='2026-11-13';f.elements.source.value='cash';f.elements.notes.value='Synthetic cash gift with verified receipt';f.requestSubmit();})()");
   await wait("document.querySelector('#gift-review')&&!document.querySelector('#gift-review').hidden");
   assert.equal((await database.query('SELECT count(*)::int AS n FROM donations WHERE donor_id=$1',[manualId])).rows[0].n,0);
@@ -218,7 +224,7 @@ try{
   const gifts=(await database.query('SELECT * FROM donations WHERE donor_id=$1',[manualId])).rows;assert.equal(gifts.length,1);assert.equal(gifts[0].amount,'25.75');assert.equal(gifts[0].source,'cash');assert.equal(gifts[0].external_transaction_id,null);
   // Missing payment values remain unknown and outside verified totals.
   await wait("[...document.querySelectorAll('.profile-actions button')].some(b=>b.textContent==='Record gift')");
-  await evaluate("[...document.querySelectorAll('.profile-actions button')].find(b=>b.textContent==='Record gift').click()");await wait("document.querySelector('#modal-title').textContent==='Record a gift'");
+  await evaluate("[...document.querySelectorAll('.profile-actions button')].find(b=>b.textContent==='Record gift').click()");await wait("document.querySelector('#modal').open&&document.querySelector('#modal-title').textContent==='Record a gift'");
   await evaluate("(()=>{const f=document.querySelector('#modal-form');f.elements.amount.value='1.01';f.elements.donated_at.value='2026-11-12';f.requestSubmit();})()");await wait("document.querySelector('#gift-review')&&!document.querySelector('#gift-review').hidden");
   assert.match(await evaluate("document.querySelector('#gift-review').textContent"),/currency unknown/);
   await evaluate("document.querySelector('#modal-form').requestSubmit()");await wait("!document.querySelector('#modal').open");

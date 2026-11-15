@@ -172,6 +172,11 @@ Node is pinned to 22.x. The authentication feature adds the approved pinned
 
 ## CIC requirements implementation
 
+The [final readiness checkpoints](docs/final-readiness-checklist.md) track the
+remaining approved improvements. Add Donor can optionally record an initial
+cash/check/offline gift in the same transaction, using the existing validated gift
+service and retry protection. Leaving the amount blank creates only the donor.
+
 Backend support for the mentor workflows includes guarded manual donor/gift entry,
 server-issued merge previews, confirmed source aliases, and paginated read APIs.
 See [backend contracts and Laptop 1 integration](docs/MENTOR-BACKEND-CONTRACTS.md).
