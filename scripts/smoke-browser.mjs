@@ -166,7 +166,7 @@ try{
  const demoGifts=(await database.query("SELECT count(*)::int AS n,sum(amount)::text AS total FROM donations WHERE external_transaction_id LIKE 'POLISH-%'")).rows[0];assert.deepEqual(demoGifts,{n:5,total:'2600.00'});
  assert.equal((await database.query("SELECT count(*)::int AS n FROM campaigns WHERE name LIKE 'DEMO %'")).rows[0].n,2);
  // Same display name, distinct email: the selector must make the choice explicit.
- await evaluate("(async()=>{const {api}=await import('/public/js/api.js');await api('/donors',{method:'POST',body:{name:'Demo Alex',email:'other-alex@example.test'}});})()");
+ await evaluate("(async()=>{const {api}=await import('/public/js/api.js');await api('/donors',{method:'POST',body:{name:'Demo Alex',email:'other-alex@example.test',allow_duplicate:true,duplicate_reason:'Synthetic distinct donor identity for selector regression'}});})()");
  await evaluate("location.hash='settings'");await wait("[...document.querySelectorAll('main button')].some(b=>b.textContent==='Manage board member')");
  // Exercise role policy through the real forms and backend, not just helper tests.
  await evaluate("[...document.querySelectorAll('main button')].find(b=>b.textContent==='Manage board member').click()");
