@@ -67,3 +67,24 @@ explicit type preservation and populated 007 → 008 upgrade without historical 
 - Validation: 22 focused tests passed, zero failed; the complete Chrome/HTTPS/SQL
   smoke passed with zero browser exceptions, including bulk approval and the new
   independent organization/contact-person form values. No extra migration needed.
+
+## Milestone 4 — real provider transport and truthful receipt states
+
+- Added a real Resend REST adapter using built-in server-side fetch, fixed HTTPS
+  provider URL, bounded timeouts, plain-text content and stable idempotency headers.
+  No project dependency or credential was added.
+- Delivery is OFF by default. Local/demo/test mail requires an exact operator-
+  verified inbox allowlist. Reserved example/test/invalid domains and provider
+  simulation addresses are rejected before network access, even if allowlisted.
+- API acceptance records `queued`, not delivered. Provider evidence distinguishes
+  sent/delivered/bounced/suppressed states. Queued/in-flight outreach blocks merges;
+  accepted/delivered messages cannot be edited or sent a second time.
+- Migration 009 adds receipt states without changing existing human-send history.
+  It is tested only in disposable databases; shared Neon is unchanged.
+- Rate-limit rejection is distinguished from ambiguous network outcomes. Errors
+  never expose raw provider responses, credentials or recipient addresses.
+- Focused provider/outreach/merge/frontend tests passed against an injected HTTP
+  transport and real isolated SQL. **No real Resend request or email was sent.**
+  Credentials, sender and verified test inboxes are currently absent.
+- Scheduling, durable activation policy and delivery reconciliation are the next
+  milestone; this transport alone does not automatically dispatch messages.

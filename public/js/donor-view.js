@@ -7,7 +7,7 @@ export function parseRoute(hash){
  try{if(screen==='donors'&&encodedId)donorId=decodeURIComponent(encodedId);}catch{/* Invalid links get a readable error in the profile. */}
  return {screen,donorId,params:new URLSearchParams(query)};
 }
-export const outreachStatus=draft=>draft.status==='sent'?((draft.providerId==='human-attested'||draft.manualSendReference)?'Human-reported sent':'Delivery recorded'):({draft:'Draft',approved:'Approved',handed_off:'Handed off',failed:'Delivery not confirmed'})[draft.status]||'Status unavailable';
+export const outreachStatus=draft=>draft.status==='sent'?((draft.providerId==='human-attested'||draft.manualSendReference)?'Human-reported sent':'Provider-reported sent'):({draft:'Draft',approved:'Approved',handed_off:'Handed off',failed:'Delivery not confirmed',queued:'Provider accepted; delivery pending',delivered:'Provider-confirmed delivered',bounced:'Provider-reported bounce',suppressed:'Suppressed after provider complaint'})[draft.status]||'Status unavailable';
 export function givingSummary(gifts){
  const totals=new Map();let unknown=0;
  for(const gift of gifts){if(gift.status!=='completed'||!gift.currency||gift.amount===null||gift.amount===undefined||gift.amount===''||!Number.isFinite(Number(gift.amount))||Number(gift.amount)<=0){unknown++;continue;}totals.set(gift.currency,(totals.get(gift.currency)||0)+Math.round(Number(gift.amount)*100));}
