@@ -10,6 +10,7 @@ import {readFile,readdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {createIsolatedDatabase} from '../lib/isolated-database.js';
 import {migrate} from '../lib/database-setup.js';
+import {donorInput} from '../lib/data-validation.js';
 const header=['Name','Donor type','Company','Organization name','Contact person','Board contact'];
 const upload=(matrix,kind='csv')=>({filename:`synthetic-organizations.${kind}`,source:'synthetic-org',content_base64:(kind==='csv'?Buffer.from(matrix.map(r=>r.join(',')).join('\n')):workbook(matrix)).toString('base64')});
 
@@ -21,10 +22,11 @@ test('CSV/XLSX preserve independent organization, employer, human contact and bo
  }
 });
 test('company never establishes organization identity; name suggestions require review and preserve explicit types',async()=>{
- const p=await parseImport(upload([header,['Synthetic Alex','','Synthetic Foundation','','',''],['Opportunity Hack','','','','',''],['Opportunity Hack','person','','','','']]));
+ const p=await parseImport(upload([header,['Synthetic Alex','','Synthetic Foundation','','',''],['Opportunity Hack','','','','',''],['Opportunity Hack','person','','','',''],['','','Opportunity Hack','','','']]));
  assert.equal(p.rows[0].data.donor.donor_type,'person');assert.equal(p.rows[0].data.organization_suggestion,null);
  assert.equal(p.rows[1].data.donor.donor_type,'person');assert.equal(p.rows[1].data.organization_suggestion.type,'organization');
  assert.equal(p.rows[2].data.donor.donor_type,'person');assert.equal(p.rows[2].data.organization_suggestion,null);
+ assert.equal(p.rows[3].data.donor.donor_type,'person');assert.equal(p.rows[3].data.organization_suggestion,null,'employer-only rows must not generate organization suggestions');
  assert.throws(()=>reviewedImportRows({rows:[p.rows[1]]},{}),/Review donor type/);
  assert.equal(reviewedImportRows({rows:[p.rows[1]]},{'type:3':'organization'})[3].donor_type,'organization');
 });
@@ -50,6 +52,8 @@ test('008 upgrades populated 007 storage without inferring identities or changin
    }
   });
   const before=(await db.query("INSERT INTO donors(donor_type,display_name,company,custom_data) VALUES ('person','Synthetic historical contact','Synthetic Foundation','{\"legacy\":\"preserved\"}') RETURNING *")).rows[0];
+  await assert.rejects(donorInput(db.query,{donor_type:'person',display_name:'Synthetic pending new fields',organization_name:'Synthetic Organization'}),{code:'MIGRATION_REQUIRED'});
+  assert.equal(Object.hasOwn(await donorInput(db.query,{donor_type:'person',display_name:'Synthetic legacy-compatible',organization_name:'',contact_person:''}),'organization_name'),false);
   await db.transaction(migrate);await db.transaction(migrate);
   const after=(await db.query('SELECT * FROM donors WHERE id=$1',[before.id])).rows[0];
   assert.equal(after.organization_name,null);assert.equal(after.contact_person,null);
